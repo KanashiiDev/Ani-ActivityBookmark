@@ -3,7 +3,7 @@
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
 // @grant       none
-// @version     1.0
+// @version     1.0.1
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -520,9 +520,11 @@ function buildactivity() {
   let activitydataDiv = document.getElementById("activitydataDiv");
   if(activitydataDiv){activitydataDiv.innerHTML = "";}
   let activitiesidarray = window.localStorage.getItem('savedactivites');
+  if (activitiesidarray !== null) {
   let x = activitiesidarray.split(/[.,!,?]/);
   for (var i = 0; i < x.length; i++) {
     if (x.length > 0) {getlist(x[i])}}
+  }
 }
 
 function creatediv() {
@@ -733,9 +735,10 @@ function saveclick() {
 			el.onclick = () => {
         el.lastElementChild.innerText = "Saved!";
         let activitiesidarray = window.localStorage.getItem('savedactivites');
+        if (activitiesidarray !== null) {
         let x = activitiesidarray.split(/[.,!,?]/);
         for(var i in x){if(x[i]==id){x.splice(i,1);break;}}
-        mainarray = x;
+        mainarray = x;}
         var id = el.parentElement.children[0].href.split('/')[4];
 				for (var i = 0; i <= mainarray.length; i++) {
 					if (id == mainarray[i]) {
