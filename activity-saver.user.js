@@ -592,12 +592,11 @@ function getlist(id) {
     }
 
     var query = `query($id: Int){Activity(id: $id){
-    ... on TextActivity{id type siteUrl createdAt text user{name	avatar{medium}}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}
+    ... on TextActivity{id type siteUrl createdAt text user{name avatar{medium}}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}
 		... on MessageActivity{id type siteUrl createdAt text: message user: messenger{name avatar{medium}}recipient{name}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}}}`;
 var variables={id:id},url="https://graphql.anilist.co",options={method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:query,variables:variables})};
 fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let APIlimit=90,APIcallsUsed=0,APIcallsUsed_shortTerm=0,pending={},APIcounter=setInterval((function(){APIcallsUsed=0}),6e4),APIcounter2=setInterval((function(){APIcallsUsed_shortTerm=0}),1e4);function handleResponse(e){APIlimit=e.headers.get("x-ratelimit-limit"),APIcallsUsed=APIlimit-e.headers.get("x-ratelimit-remaining");try{return e.json().then((function(t){return e.ok?t:Promise.reject(t)}))}catch(t){throw console.warn(t,e),t}}
     function handleData(data) {
-      //Create Activity
       let activity = data.data.Activity;
       let id = activity.id;
       let acttext = activity.text;
@@ -619,6 +618,8 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
           .replace(/youtube.(h).(.*?)/gmi, "![](ht")
           .replace(/(?<!\(|")\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|")\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='saveembed' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
+          //Anime-Manga Embed Fix
+
           delay(1000).then(() => embedt());
           function embedt() {
             var Activityembedded = false;
@@ -691,9 +692,9 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
 				likeButton.appendChild(svg.likeNative.cloneNode(true));
         if(activity.likes.some(like => like.name === username)){likeButton.classList.add("liked")}
         let replyWrap = create2("div","reply-wrap",false,activitydiv,"display:none;");
-        actionReplies.onclick = function(){if(replyWrap.style.display === "none"){replyWrap.style.display = "block"}else{replyWrap.style.display = "none"};
-        //Replies
-        let activityReplies = create2("div","activity-replies",false,replyWrap);
+        actionReplies.onclick = function(){if(replyWrap.style.display === "none"){replyWrap.style.display = "block"}else{replyWrap.style.display = "none"}
+        };
+          let activityReplies = create2("div","activity-replies",false,replyWrap);
           activity.replies.forEach(rep => {
           let reply = create2("div","reply",false,activityReplies);
           let header = create2("div","header",false,reply);
@@ -728,27 +729,27 @@ function handleError(error) {console.error(error);}
 
 function saveclick() {
 	each('.saveActivity', function(el) {
-		el.addEventListener('click', function(e) {
+	el.addEventListener('click', function(e) {
     if(el.lastElementChild.innerText === "Saved!" || el.lastElementChild.innerText==="Already Saved!"){} else {el.click();}
-			e.preventDefault();
-			el.onclick = () => {
+	e.preventDefault();
+	el.onclick = () => {
         el.lastElementChild.innerText = "Saved!";
         let activitiesidarray = window.localStorage.getItem('savedactivites');
         let x = activitiesidarray.split(/[.,!,?]/);
         for(var i in x){if(x[i]==id){x.splice(i,1);break;}}
         mainarray = x;
         var id = el.parentElement.children[0].href.split('/')[4];
-				for (var i = 0; i <= mainarray.length; i++) {
-					if (id == mainarray[i]) {
+	or (var i = 0; i <= mainarray.length; i++) {
+	if (id == mainarray[i]) {
           el.lastElementChild.innerText = "Already Saved!";
-            return
-          }
-        }
-				mainarray.push(id);
-				localStorage.setItem("savedactivites", [(mainarray)]);
-        let activitydataDiv = document.getElementById("activitydataDiv");
-        if(activitydataDiv){buildactivity();}
-			}
+	return
+	}
+	}
+	mainarray.push(id);
+	localStorage.setItem("savedactivites", [(mainarray)]);
+  let activitydataDiv = document.getElementById("activitydataDiv");
+  if(activitydataDiv){buildactivity();}
+	}
     });
   });
 function each(r,c){var e=document.querySelectorAll(r),o=Array.prototype.slice.call(e);Array.prototype.forEach.call(o,(function(r,e){if(c)return c(r)}))}
