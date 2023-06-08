@@ -2,8 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @grant       none
-// @version     1.0.1
+// @version     1.0.2
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -613,13 +612,15 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
         let userdiv=create("div",{class:"activitydatauserdiv",id:activity.id});
         if (acttext === undefined) {removeactivity(id);return}
         if (acttext !== undefined) {
+          console.log(data);
           let acttextfix = acttext
           .replace(/(#{1})/gm, '<h1></h1>')
-          .replace(/(?<!\[)\[.*?(.*[^A-Za-z0-9]+)\].*?\(.*?([A-Za-z0-9_.\w\s].*)\)/g, '<a href='+"$2"+'>'+"$1"+'</a>').replace(/``([\s\S]*?)/g, '<code></code>')
+          .replace(/(?<!\[)\[.*?(.*[^A-Za-z0-9]+)\].*?\(.*?([A-Za-z0-9_.\w\s].*)\)/g, '<a href='+"$2"+'>'+"$1"+'</a>')
+          .replace(/``([\s\S]*?)/g, '<code></code>')
           .replace(/(__)(__)/g, '<hr>')
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
           .replace(/youtube.(h).(.*?)/gmi, "![](ht")
-          .replace(/(?<!\(|")\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|")\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='saveembed' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
+          .replace(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='saveembed' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
           delay(1000).then(() => embedt());
           function embedt() {
             var Activityembedded = false;
