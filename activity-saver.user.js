@@ -604,11 +604,13 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
         if (acttext !== undefined) {
           console.log(data);
           let acttextfix = acttext
-          .replace(/(__)([A-Za-z0-9\ ,.-<>]*[A-Za-z0-9\ ,.-]+.(\s*))(__)/g, '<b>'+"$2"+'</b>')
+          .replace(/(~~~)/g, " "+"$1"+" ")
+          .replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>'+"$2"+'</blockquote>')
+          .replace(/(__)([A-Za-z0-9\ ,.-<>]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<b>'+"$2"+'</b>')
           .replace(/(#{1})/gm, '<h1></h1>')
           .replace(/(?<!\[)\[.*?(.*[^A-Za-z0-9]+)\].*?\(.*?([A-Za-z0-9_.\w\s].*)\)/g, '<a href='+"$2"+'>'+"$1"+'</a>')
           .replace(/``([\s\S]*?)/g, '<code></code>')
-          .replace(/(_)\1{3,}/g, '<hr>')
+          .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
           .replace(/youtube.(h).(.*?)/gmi, "![](ht")
           .replace(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='saveembed' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
