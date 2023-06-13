@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.0.4
+// @version     1.0.5
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -40,6 +40,28 @@ var r,i,f=t;if(e)for(r in e)if("style"===r)for(i in e.style)f.style[i]=e.style[i
 
 //CSS
 var styles = `
+.activitydata span.markdown_spoiler {
+    display:block;
+    margin:10px
+}
+
+.activitydata span.markdown_spoiler_cont {
+    margin-top:10px
+}
+
+.activitydata span.markdown_spoiler_show {
+    cursor: pointer;
+    padding: 5px;
+    padding-top: 3px;
+    font-weight: 700;
+    padding-bottom: 3px;
+    background: rgb(var(--color-foreground));
+    font-size:12px;
+    color: rgb(var(--color-blue));
+    -webkit-border-radius: 5px;
+            border-radius: 5px
+}
+
 .activitydata .button.liked {
   color: rgb(var(--color-red));
 }
@@ -168,16 +190,16 @@ var styles = `
           border-radius: 10px;
   background: rgb(var(--color-background));
 }
+.activityinner {
+  text-align: -webkit-center;
+}
 
 .activitydata img {
   max-width: 100%;
   display:block;
+  margin-bottom:5px
 }
-.activitydata strong,
-.activitydata p {
-line-height: 1.4;
-text-align: -webkit-center;
-}
+
 .activitydata blockquote {
   background: rgb(var(--color-background));
   border-left: solid 7px rgb(var(--color-text));
@@ -218,22 +240,17 @@ text-align: -webkit-center;
 }
 
 .activitydata .saveembed {
-  background: rgb(var(--color-foreground));
-  font-size: 12px;
-  color: rgb(var(--color-text))!important;
-  -webkit-border-radius: 3px;
-          border-radius: 3px;
-  display: -ms-inline-grid;
-  display: inline-grid;
-  -ms-grid-columns: 50px auto;
-  grid-template-columns: 50px auto;
-  line-height: 18px;
-  min-width: 300px;
-  min-height: 64px;
-  -webkit-box-align: center;
-      -ms-flex-align: center;
-          -webkit-align-items: center;
-          align-items: center;
+    background: rgb(var(--color-foreground));
+    font-size: 12px;
+    color: rgb(var(--color-text))!important;
+    -webkit-border-radius: 3px;
+            border-radius: 3px;
+    display: -ms-inline-grid;
+    display: inline-grid;
+    grid-auto-flow: column;
+    -ms-grid-columns: 50px;
+    grid-template-columns: 50px;
+    justify-items: center;
 }
 
 .activitydata .action:hover,
@@ -243,12 +260,13 @@ text-align: -webkit-center;
 }
 
 .activitydata .saveembed b {
-  text-align: center;
-  display: -ms-grid;
-  display: grid;
-  word-break: break-word;
-  justify-items: center;
-  margin: 3px;
+    display: -ms-grid;
+    display: grid;
+    word-break: break-word;
+    margin: 3px;
+    padding: 10px;
+    justify-items: center;
+    line-height:18px
 }
 
 .activitydata .saveembed .cover {
@@ -487,7 +505,7 @@ var button=create("li",{class:"el-dropdown-menu__item mainbtn",id:"Saved Activit
 start();
 function start() {
      addSavetoActivities();
- if (!/^\/(home|user)\/?([\w-]+)?\/?$/.test(location.pathname)) {return}
+ if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {return}
     let filters = document.querySelector(".el-dropdown-menu");
     if (!filters) {setTimeout(start, 100);return}
       {
@@ -571,7 +589,7 @@ function addSavetoActivities() {
             if (!hasOwn(activity, "ActivitySave")) {
               activity.ActivitySave = true;
               let activitySave=create("a",{dataIcon:"link",class:"saveActivity el-dropdown-menu__item",id:"saveActivity",href:saveclick()},"<b>Save Activity</b>");
-              if (activity.closest(".activity-text")){activity.append(activitySave);activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);}
+              if (activity.closest(".activity-text")||activity.closest(".activity-message")){activity.append(activitySave);activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);}
             }
         }
     })
@@ -593,6 +611,7 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
       let id = activity.id;
       let acttext = activity.text;
       if (active) {
+      let activityinner=create("div",{class:"activityinner"});
       let aimg=create("a",{class:"activitydataimg",id:"activitydataimg",href:"https://anilist.co/user/"+activity.user.name,style:{backgroundImage:"url("+activity.user.avatar.medium+")"}});
         let actusername=create("a",{class:"activitydatausername",id:"activitydatausername",href:"https://anilist.co/user/"+activity.user.name},""+activity.user.name);
         let activitydiv=create("div",{class:"activitydata",id:activity.id});
@@ -613,53 +632,69 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
           .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
           .replace(/youtube.(h).(.*?)/gmi, "![](ht")
-          .replace(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='saveembed' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
-          delay(1000).then(() => embedt());
-          function embedt() {
+          .replace(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='embedLink' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
+          function spoiler (){
+          var actspoiled =false;
+          let actspoiler = document.querySelectorAll(".activitydata span.markdown_spoiler");
+          actspoiler.forEach(function(spoilers) {
+          if (!hasOwn(spoilers, "actspoiled")) {
+          spoilers.actspoiled = true;
+          let contspoiler = create("span",{class:"markdown_spoiler_cont"});
+          let showspoiler = create("span",{class:"markdown_spoiler_show"});
+          showspoiler.innerHTML="Spoiler, click to view";
+          contspoiler.innerHTML = spoilers.innerHTML;
+          contspoiler.style.display= "none";
+          spoilers.innerHTML = "";
+          spoilers.insertBefore(showspoiler, spoilers.children[0]);
+          spoilers.append(contspoiler);
+          showspoiler.onclick = function(){if(contspoiler.style.display === "none"){showspoiler.innerHTML="Hide";contspoiler.style.display = "block"}else{showspoiler.innerHTML="Spoiler, click to view";contspoiler.style.display = "none"}
+          }
+        }})};
+          function embed() {
             var Activityembedded = false;
-            let activityCollection = document.querySelectorAll(".saveembed");
-            activityCollection.forEach(function(activity) {
+            let embeds = document.querySelectorAll(".embedLink");
+            embeds.forEach(function(activity) {
               {
                 if (!hasOwn(activity, "Activityembedded")) {
                   activity.Activityembedded = true;
                   var id = activity.href.split('/')[4];
                   if (id !== undefined) {
                     getanime(id);
-
                     function getanime(embedid) {
                       var query = `query ($id: Int, $page: Int) {Page (page: $page) {media (id: $id) {type format status startDate {year} endDate {year}	season seasonYear averageScore id siteUrl title { romaji } coverImage { large  }}}}`;
                       var variables = {id: embedid,page: 1};var url="https://graphql.anilist.co",options={method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({query:query,variables:variables})};function handleResponse(e){return e.json().then((function(n){return e.ok?n:Promise.reject(n)}))}fetch(url,options).then(handleResponse).then(handleData).catch(handleError);
-
                       function handleData(data) {
                         let activitySave = create("a", {class: "saveembed",}, '<b>' + (data.data.Page.media[0].title.romaji) + '</b>');
                         let embedimg = create("a", {class: "cover",style: {backgroundImage: "url(" + data.data.Page.media[0].coverImage.large + ")"}});
                         activity.append(activitySave);
                         activity.href = (data.data.Page.media[0].siteUrl);
                         activitySave.insertBefore(embedimg, activitySave.children[0]);
+                        if(data.data.Page.media[0].averageScore!==null) {var avg = " · " + data.data.Page.media[0].averageScore + "%";} else {avg = "";}
+                        let activitySaveDetails = create("a", {class: "saveembedDetails"});
                         if (data.data.Page.media[0].type === "MANGA") {
-                          let activitySaveDetails = create("a", {class: "saveembedDetails",}, '</br><b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].status) + " · " + (data.data.Page.media[0].startDate.year) +  " · " + (data.data.Page.media[0].averageScore) + "%" + '</b>');
-                          embedimg.nextSibling.append(activitySaveDetails);}else{
-                        if (data.data.Page.media[0].format === "MUSIC") {
-                          let activitySaveDetails = create("a", {class: "saveembedDetails",}, '</br><b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].endDate.year) +  " · " + (data.data.Page.media[0].averageScore) + "%" + '</b>');
-                          embedimg.nextSibling.append(activitySaveDetails);}else{
-                          if(data.data.Page.media[0].averageScore!==null) {var avg = " · " + data.data.Page.media[0].averageScore + "%";} else {avg = "";}
-                          let activitySaveDetails = create("a", {class: "saveembedDetails",}, '</br><b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].season) + " " + (data.data.Page.media[0].seasonYear) + " · " + (data.data.Page.media[0].status) + avg + '</b>');
+                          activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].status) + " · " + (data.data.Page.media[0].startDate.year) +  avg);}
+                        else if (data.data.Page.media[0].format === "MUSIC") {
+                           activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].endDate.year) + avg + '</b>');}
+                        else{
+                          activitySaveDetails.innerHTML = ( '<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].season) + " " + (data.data.Page.media[0].seasonYear) + " · " + (data.data.Page.media[0].status) + avg + '</b>');}
                           embedimg.nextSibling.append(activitySaveDetails);
                           let fix = activitySaveDetails.text.replace(/(_)/g, " ");
-                          activitySaveDetails.text = fix;}
+                          activitySaveDetails.text = fix;
                           }
                         function handleError(error) {console.error(error);}
                       }
                     }
                   }
                 }
-              }
-            })
-          }
-          activitydiv.innerHTML = DOMPurify.sanitize(acttextfix);
-          activitydiv.innerHTML = makeHtml(activitydiv.innerHTML);
+              })
+            }
+          activityinner.innerHTML = DOMPurify.sanitize(acttextfix);
+          activityinner.innerHTML = makeHtml(activityinner.innerHTML);
+         delay(10).then(() => spoiler());
+         delay(10).then(() => embed());
         }
         activitydataDiv.appendChild(activitydiv);
+        activitydiv.appendChild(activityinner);
         activitydiv.appendChild(userdiv);
         aimg.appendChild(actusername);
         activitydiv.appendChild(actlinks);
