@@ -621,13 +621,12 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
         let userdiv=create("div",{class:"activitydatauserdiv",id:activity.id});
         if (acttext === undefined) {removeactivity(id);return}
         if (acttext !== undefined) {
-          console.log(data);
           let acttextfix = acttext
           .replace(/(~~~)/g, " "+"$1"+" ")
           .replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>'+"$2"+'</blockquote>')
-          .replace(/(__)([A-Za-z0-9\ ,.-<>]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<b>'+"$2"+'</b>')
+          .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<b>'+"$2"+'</b>')
           .replace(/(#{1})/gm, '<h1></h1>')
-          .replace(/(?<!\[)\[.*?(.*[^A-Za-z0-9]+)\].*?\(.*?([A-Za-z0-9_.\w\s].*)\)/g, '<a href='+"$2"+'>'+"$1"+'</a>')
+          .replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, '<a href='+"$5"+'>'+"$2"+'</a>')
           .replace(/``([\s\S]*?)/g, '<code></code>')
           .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
