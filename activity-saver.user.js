@@ -784,17 +784,15 @@ function saveclick() {
 function each(r,c){var e=document.querySelectorAll(r),o=Array.prototype.slice.call(e);Array.prototype.forEach.call(o,(function(r,e){if(c)return c(r)}))}
 }
 
-window.onload = function() {
-    if (document.location.href === "https://anilist.co/home") {
-     document.querySelector(".el-dropdown-menu").appendChild(button);
-   }
+window.addEventListener('load', function() {
     var bodyList = document.querySelector("body")
     var observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (oldHref != document.location.href) {
                 oldHref = document.location.href;
                 active = false;
-              start();
+                start();
+                set(button, {class:"el-dropdown-menu__item"});
             }
         });
     });
@@ -803,4 +801,4 @@ window.onload = function() {
         subtree: true
     };
     observer.observe(bodyList, config);
-}
+});
