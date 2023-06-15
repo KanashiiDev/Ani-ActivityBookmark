@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.0.5
+// @version     1.0.6
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -196,12 +196,11 @@ var styles = `
 
 .activitydata img {
   max-width: 100%;
-  display:block;
   margin-bottom:5px
 }
 
 .activitydata blockquote {
-  background: rgb(var(--color-background));
+  background: rgb(var(--color-foreground));
   border-left: solid 7px rgb(var(--color-text));
   -webkit-border-radius: 3px;
           border-radius: 3px;
@@ -622,16 +621,16 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
         if (acttext === undefined) {removeactivity(id);return}
         if (acttext !== undefined) {
           let acttextfix = acttext
+          .replace(/((.*))(.*img\d)*(.*\))/g, '<br>'+"$1$4"+'<br>')
           .replace(/(~~~)/g, " "+"$1"+" ")
           .replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>'+"$2"+'</blockquote>')
           .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<b>'+"$2"+'</b>')
-          .replace(/(#{1})/gm, '<h1></h1>')
           .replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, '<a href='+"$5"+'>'+"$2"+'</a>')
           .replace(/``([\s\S]*?)/g, '<code></code>')
           .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
           .replace(/(img.*)[\s\S]\/*?(.*())/g,imgfix => {let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");return imgfixed})
-          .replace(/youtube.(h).(.*?)/gmi, "![](ht")
-          .replace(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https.*)(anilist.*co.*)\/(anime|manga)\/(.*?)(\/.*?)(.*?)(\w\s|\/.*?)/g); return "<a class='embedLink' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
+          .replace(/youtube.(h).(.*?)/g, " ![](ht")
+          .replace(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+)(.*?\/|)/gm, embedlink => {let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+)(.*?\/|)/gm); return "<a class='embedLink' href=\"" + embedlinked + "\">" + "</a>" + "</br>"});
           function spoiler (){
           var actspoiled =false;
           let actspoiler = document.querySelectorAll(".activitydata span.markdown_spoiler");
@@ -669,13 +668,14 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
                         activity.href = (data.data.Page.media[0].siteUrl);
                         activitySave.insertBefore(embedimg, activitySave.children[0]);
                         if(data.data.Page.media[0].averageScore!==null) {var avg = " · " + data.data.Page.media[0].averageScore + "%";} else {avg = "";}
+                        if(data.data.Page.media[0].season!==null) {var season = " · " + data.data.Page.media[0].season + " " + data.data.Page.media[0].seasonYear;} else {season = "";}
                         let activitySaveDetails = create("a", {class: "saveembedDetails"});
                         if (data.data.Page.media[0].type === "MANGA") {
                           activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].status) + " · " + (data.data.Page.media[0].startDate.year) +  avg);}
                         else if (data.data.Page.media[0].format === "MUSIC") {
                            activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].endDate.year) + avg + '</b>');}
                         else{
-                          activitySaveDetails.innerHTML = ( '<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].season) + " " + (data.data.Page.media[0].seasonYear) + " · " + (data.data.Page.media[0].status) + avg + '</b>');}
+                          activitySaveDetails.innerHTML = ( '<b>' + (data.data.Page.media[0].format) + season + " · " + (data.data.Page.media[0].status) + avg + '</b>');}
                           embedimg.nextSibling.append(activitySaveDetails);
                           let fix = activitySaveDetails.text.replace(/(_)/g, " ");
                           activitySaveDetails.text = fix;
@@ -687,8 +687,11 @@ fetch(url,options).then(handleResponse).then(handleData).catch(handleError);let 
                 }
               })
             }
-          activityinner.innerHTML = DOMPurify.sanitize(acttextfix);
-          activityinner.innerHTML = makeHtml(activityinner.innerHTML);
+          DOMPurify.sanitize(acttextfix);
+          activityinner.innerHTML = makeHtml(acttextfix);
+          let fix = activityinner.innerHTML.replace(/(<br>){2,}/g, '').replace(/(#)/g, " ");
+          activityinner.innerHTML = fix;
+
          delay(10).then(() => spoiler());
          delay(10).then(() => embed());
         }
