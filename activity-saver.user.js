@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.0.9
+// @version     1.1.0
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -596,7 +596,7 @@ function buildactivity() {
 	if(activitydataDiv) {
 		activitydataDiv.innerHTML = "";
 	}
-	if(autosave || activitiesidarray === null) {
+	if(autosave && activitiesidarray === null ||autosave &&  activitiesidarray === '') {
 		const query = `query($userName: String) {User(name: $userName){about}}`;
 		var variables = {
 			userName: username
@@ -632,7 +632,7 @@ function buildactivity() {
 				});
 				x = JSON.stringify(values).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
 				buildacts();
-				if(activitiesidarray === null) {
+				if(activitiesidarray !== null) {
 					window.localStorage.setItem('savedactivites', x);
 				}
 			} else {
@@ -855,6 +855,7 @@ function settingsDiv() {
     SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));}
 		SavetoBtn.onclick = function() {
 			if(accessToken.length > 5) {
+        autosaveact();
 				autosave = !autosave;
 				localStorage.setItem("actautosave", autosave);
     SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
@@ -1160,7 +1161,6 @@ function getlist(id) {
 			throw console.warn(t, e), t
 		}
 	}
-
 	function handleData(data) {
 		//Create Activity
 		let activity = data.data.Activity;
@@ -1341,10 +1341,11 @@ function getlist(id) {
 			})
 		}
 	}
-}
-
-function handleError(error) {
-	console.error(error);
+	function handleError(e){
+    console.log(e);
+		if(e.errors){
+			if(
+				e.errors.some(thing => thing.message === "Not Found.")){console.log(id);removeactivity(id)}}}
 }
 check();
 accessToken = localStorage.getItem("savetkn");
