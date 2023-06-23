@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.0.7
+// @version     1.0.8
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -624,7 +624,7 @@ function buildactivity() {
 		function handleData(data) {
 			let actiddata = "";
 			actiddata = data.data.User.about;
-			let jsonMatch = (actiddata).match(/^\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+			let jsonMatch = (actiddata).match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
 			if(jsonMatch) {
 				let data2 = JSON.parse(LZString.decompressFromBase64(jsonMatch[1]));
 				var values = Object.keys(data2).map(function(key) {
@@ -690,12 +690,14 @@ function autosaveact() {
 
 		function handleData(data) {
 			auth = data.data.User.about;
-			let jsonMatch = (auth || "").match(/^\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+			let jsonMatch = (auth || "").match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/g);
+      let customcssmatch = (auth || "").match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
+      if(!customcssmatch) {customcssmatch = []}
 			let newDescription = "";
 			if(jsonMatch) {
-				newDescription = "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "").replace(/^\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, ""));
+				newDescription = customcssmatch[0] + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "").replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, ""));
 			} else {
-				newDescription = "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || ""));
+				newDescription = customcssmatch[0] + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "")).replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
 			}
 			authAPIcall(`mutation($about: String){UpdateUser(about: $about){about}}`, {
 				about: newDescription
@@ -805,9 +807,9 @@ function settingsDiv() {
 					let data = "";
 					try {
 						data = JSON.parse(evt.target.result);
-						let datamatch = data.match(/^\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+						let datamatch = data.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
 						if(datamatch && data !== "[](actjsonETI=)") {
-							let data2 = data.replace(/^\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "$1");
+							let data2 = data.replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "$1");
 							let data3 = JSON.parse(LZString.decompressFromBase64(data2));
 							let data4 = JSON.stringify(data3).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
 							window.localStorage.setItem('savedactivites', data4);
@@ -1356,7 +1358,6 @@ function check() {
 				let tokenList = location.hash.split("&").map(a => a.split("="));
 				accessToken = tokenList[0][1];
 				localStorage.setItem("savetkn", accessToken);
-				console.log("Token = " + accessToken);
 				location.replace(location.protocol + "//" + location.hostname + location.pathname);
 			}
 		}
