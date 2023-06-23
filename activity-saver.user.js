@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.0.8
+// @version     1.0.9
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -692,12 +692,13 @@ function autosaveact() {
 			auth = data.data.User.about;
 			let jsonMatch = (auth || "").match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/g);
       let customcssmatch = (auth || "").match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
-      if(!customcssmatch) {customcssmatch = []}
+      let customcssmatched;
+      if(customcssmatch){customcssmatched = customcssmatch[0]} else {customcssmatched = ""}
 			let newDescription = "";
 			if(jsonMatch) {
-				newDescription = customcssmatch[0] + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "").replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, ""));
+				newDescription =  customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "").replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, ""));
 			} else {
-				newDescription = customcssmatch[0] + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "")).replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
+				newDescription = customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "")).replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
 			}
 			authAPIcall(`mutation($about: String){UpdateUser(about: $about){about}}`, {
 				about: newDescription
