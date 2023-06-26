@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.1
+// @version     1.1.2
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -120,10 +120,7 @@ var styles = `
 .activitydata .acttime {
   font: 800 1.1rem Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
   color: rgb(var(--color-text-lighter));
-  position: relative;
-  right: -30px;
-  top: 5px;
-  width: 100px;
+  margin-top:3px
 }
 
 .activitydata .reply .actions {
@@ -137,7 +134,7 @@ var styles = `
   -webkit-box-align: center;
       -ms-flex-align: center;
           -webkit-align-items: center;
-          align-items: center;
+          align-items: center
 }
 
 .activitydata .reply .action {
@@ -166,11 +163,16 @@ var styles = `
   padding-bottom: 4px;
   position: relative;
 }
+.activitydata .reply-markdown {
+  padding: 0px 2px
+}
+.activitydata .reply-wrap .name {
+    padding: 8px 2px
+}
 
 .activitydata .name {
-  top: -35px;
   margin-left: 5px;
-  position: relative;
+  position: absolute;
   font-weight: bold;
 }
 
@@ -225,24 +227,32 @@ var styles = `
 }
 
 .activitydataimg {
-  background-size: cover;
-  background-repeat: no-repeat;
-  display: inline-block;
-  width: 50px;
-  -webkit-border-radius:5px;
-          border-radius:5px;
-  margin-bottom: 10px;
-  padding: 25px;
-  height: 50px;
+ background-size: cover;
+    background-repeat: no-repeat;
+    display: inline-block;
+    width: 45px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    height: 45px
 }
 
 .activitydatausername {
-  font-weight: 700;
-  padding-left: 30px;
-  top: -15px;
-  position: relative;
+    font-weight: 700;
+    left: 50px;
+    top: 7px;
+    position: relative;
+    width: 150px;
+    display: block;
 }
 
+.reply-wrap .activitydataimg {
+    width: 30px;
+    height: 30px
+}
+.reply-wrap .reply .header {
+   height:40px
+}
 .activitydata .saveembed {
     background: rgb(var(--color-foreground));
     font-size: 12px;
@@ -600,7 +610,7 @@ function buildactivity() {
    if (activitydataDiv) {
       activitydataDiv.innerHTML = "";
    }
-   if (autosave && activitiesidarray === null || autosave && activitiesidarray === '') {
+   if (autosave) {
       const query = `query($userName: String) {User(name: $userName){about}}`;
       var variables = {
          userName: username
@@ -636,9 +646,7 @@ function buildactivity() {
             });
             x = JSON.stringify(values).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
             buildacts();
-            if (activitiesidarray !== null) {
                window.localStorage.setItem('savedactivites', x);
-            }
          } else {
             autosaveact();
             return buildactivity();
@@ -1461,12 +1469,16 @@ function getlist(id) {
             publishButton.style.display = "inline";
          };
          inputArea.addEventListener('keydown', autosize);
-
          function autosize() {
             var el = this;
             setTimeout(function() {
+              if(inputArea.scrollHeight > 54) {
                el.style.cssText = 'height:auto';
                el.style.cssText = 'height:' + el.scrollHeight + 'px';
+              }
+              if(inputArea.value.length < 20) {
+                el.style.cssText = 'height:0';
+              }
             }, 0);
          }
          cancelButton.onclick = function() {
