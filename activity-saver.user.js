@@ -2,7 +2,7 @@
 // @name        Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.2
+// @version     1.1.3
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
@@ -1002,7 +1002,7 @@ let actfixtext = "";
 
 function htmlfix(text) {
    let acttextfix = text
-      .replace(/^youtube\(+((?!https:).*).*\)+$/igm, " youtube(https://www.youtube.com/watch?v=$1)")
+      .replace(/youtube\(+((?!https:).*).*\)/igm, " youtube(https://www.youtube.com/watch?v=$1)")
       .replace(/((.*))(.*img\d)*(.*\))/g, '<br>' + "$1$4" + '<br>')
       .replace(/(~~~)/g, " " + "$1" + " ")
       .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<strong>' + "$2" + '</strong>')
@@ -1013,7 +1013,7 @@ function htmlfix(text) {
          let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");
          return imgfixed
       })
-      .replace(/youtube.(h).(.*?)/gi, " ![](ht")
+      .replace(/youtube.(h).((.*?).*\))/gi, " ![](ht$2")
       .replace(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm, embedlink => {
          let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm);
          return "<a class='embedLink' href=\"" + embedlinked + "\">" + "</a>" + "</br>"
@@ -1135,7 +1135,7 @@ function htmlfix(text) {
    }
    DOMPurify.sanitize(acttextfix);
    let fix = acttextfix.replace(/(<br>*[\W]<br>){1,}/g, '').replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n");
-   actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">");
+   actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">")   .replace(/(.*<img\b[^>]*>)*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1"+'<br>' + "$2");
    delay(10).then(() => spoiler());
    delay(10).then(() => embed());
 }
@@ -1349,7 +1349,6 @@ function getlist(id) {
                      replyLikeButton.classList.add("liked");
                      replyLikeButton.querySelector(".count").innerText = rep.likes.length;
                   }
-                  replyLikeButton.title = rep.likes.map(a => a.name).join("\n")
                }
                if (rep.user.name === username) {
                   corner.style.cssText = 'width: 165px;left: calc(100% - 175px);top: 6px';
