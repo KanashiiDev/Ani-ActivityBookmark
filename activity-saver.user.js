@@ -2,12 +2,12 @@
 // @name        Anilist Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.3
+// @version     1.1.35
 // @license     GPL-3.0-or-later
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
-// @description Saves Text Activities
+// @description Simple userscript/extension for AniList that allows users to save text activities.
 // ==/UserScript==
 
 /*minified libraries*/
@@ -266,7 +266,8 @@ var styles = `
 overflow:hidden!important
 }
 .activitydata .reply-markdown .saveembed,
-.activitydata blockquote span.markdown_spoiler_show{
+.activitydata blockquote span.markdown_spoiler_show,
+.activitydata blockquote .saveembed{
    background: rgb(var(--color-background))
 }
 #removereply:hover,
@@ -547,7 +548,9 @@ var oldHref = document.location.href;
 interval = null;
 var accessToken = "";
 check();
-accessToken = localStorage.getItem("savetkn");
+if(localStorage.getItem("savetkn")) {
+  accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem("savetkn")))
+}
 var button = create("li", {
    class: "el-dropdown-menu__item mainbtn",
    id: "Saved Activities"
@@ -1131,7 +1134,7 @@ function htmlfix(text) {
    }
    DOMPurify.sanitize(acttextfix);
    let fix = acttextfix.replace(/(<br>*[\W]<br>){1,}/g, '').replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n");
-   actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">")   .replace(/(.*<img\b[^>]*>)*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1"+'<br>' + "$2");
+   actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">").replace(/(.*<img\b[^>]*>).*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1"+'<br>' + "$2");
    delay(10).then(() => spoiler());
    delay(10).then(() => embed());
 }
@@ -1394,11 +1397,7 @@ function getlist(id) {
                         };
                         publishButton.onclick = function() {
                            authAPIcall(
-                              `mutation($text: String,$Id: Int){
-									SaveActivityReply(text:$text id: $Id) {
-									  id text(asHtml: true)
-									}
-								}`, {
+                              `mutation($text: String,$Id: Int){id text(asHtml: true)}}`, {
                                  text: inputArea.value,
                                  Id: rep.id
                               },
@@ -1427,11 +1426,7 @@ function getlist(id) {
                   corner.insertBefore(replyRemove, corner.children[0]);
                   replyRemove.onclick = function() {
                      authAPIcall(
-                        `mutation($Id: Int){
-									DeleteActivityReply(id: $Id) {
-									  deleted
-									}
-								}`, {
+                        `mutation($Id: Int){DeleteActivityReply(id: $Id) {deleted}}`, {
                            Id: rep.id
                         },
                         data => {
@@ -1454,6 +1449,7 @@ function getlist(id) {
                markdown.innerHTML = actfixtext;
             }
          })
+        if(accessToken){
          let statusInput = create2("div", false, false, replyWrap, "padding-top:10px; text-align: -webkit-center;");
          let inputArea = create2("textarea", "el-textarea__inner", false, statusInput);
          let inputButtons = create2("div", "inputButtons", false, statusInput, "float: right;padding: 20px 2% 15px 15px;");
@@ -1508,7 +1504,7 @@ function getlist(id) {
          inputArea.value = "";
          cancelButton.style.display = "none";
          publishButton.style.display = "none";
-      }
+      }}
    }
 
    function handleError(e) {
@@ -1531,7 +1527,7 @@ function check() {
          if (/^https:\/\/anilist\.co\/home#access_token/.test(current)) {
             let tokenList = location.hash.split("&").map(a => a.split("="));
             accessToken = tokenList[0][1];
-            localStorage.setItem("savetkn", accessToken);
+            localStorage.setItem("savetkn", LZString.compressToBase64(JSON.stringify(accessToken)));
             location.replace(location.protocol + "//" + location.hostname + location.pathname);
          }
       }
