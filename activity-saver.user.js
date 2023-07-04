@@ -252,7 +252,7 @@ var styles = `
 .activitydata .saveembed {
     background: rgb(var(--color-foreground));
     font-size: 12px;
-    color: rgb(var(--color-text))!important;
+    color: rgb(var(--color-text));
     -webkit-border-radius: 3px;
             border-radius: 3px;
     display: -ms-inline-grid;
@@ -273,8 +273,7 @@ overflow:hidden!important
 #removereply:hover,
 #editreply:hover,
 .activitydata .action:hover,
-.activitydata .activitylink:hover,
-.activitydata .saveembed:hover {
+.activitydata .activitylink:hover{
   color: rgb(var(--color-blue))!important;
 }
 
@@ -318,9 +317,15 @@ overflow:hidden!important
   margin: 0;
 }
 
-.activitydata a {
+.activitydata a,
+.activitydata a.embedLink a.saveembed{
   color: rgb(var(--color-blue));
 }
+.activitydata a[href^="https://anilist.co/manga/"],
+.activitydata a.embedLink[href^="https://anilist.co/manga/"] a.saveembed{
+  color: rgb(var(--color-green));
+}
+
 
 .activitydatauserdiv {
   width: 100%;
@@ -1001,8 +1006,8 @@ let actfixtext = "";
 
 function htmlfix(text) {
    let acttextfix = text
+      .replace(/((?:(?:https?:)?(?:\/\/)?)(?:(?:www)?\.)?youtube\.(?:.+?)\/(?:(?:watch\?v=))[a-zA-Z0-9_-]{11}).*(&list.*(\n)|).*(\))/i, "$1$4")
       .replace(/youtube\(+((?!https:).*).*\)/igm, " youtube(https://www.youtube.com/watch?v=$1)")
-      .replace(/((.*))(.*img\d)*(.*\))/g, '<br>' + "$1$4" + '<br>')
       .replace(/(~~~)/g, " " + "$1" + " ")
       .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<strong>' + "$2" + '</strong>')
       .replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, '<a href=' + "$5" + '>' + "$2" + '</a>')
@@ -1133,7 +1138,7 @@ function htmlfix(text) {
       })
    }
    DOMPurify.sanitize(acttextfix);
-   let fix = acttextfix.replace(/(<br>*[\W]<br>){1,}/g, '').replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n");
+   let fix = acttextfix.replace(/(<strong>.*<\/strong>)((\n|)img\d.*\))/gm, "$1" + '<br>' +  "$2"+ '<br>').replace(/((img.*\d.*\)).*(img\d))/g, "$2" + '<br>' +  "$3").replace(/(<br>*[\W]<br>){1,}/g, '').replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n").replace(/((<\/a>)<br> \n (\W))/gm, '$2 $3').replace(/(?<!<\/br>)(\n).*(<a class='embedLink' href=".*">)/gm, '<br>'+"$2").replace(/<br>.*(\n).*(<a href=.*>)/gm, "$2");
    actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">").replace(/(.*<img\b[^>]*>).*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1"+'<br>' + "$2");
    delay(10).then(() => spoiler());
    delay(10).then(() => embed());
