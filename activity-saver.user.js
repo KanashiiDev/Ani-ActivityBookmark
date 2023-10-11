@@ -2,12 +2,13 @@
 // @name        Anilist Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.35
+// @version     1.1.36
 // @license     GPL-3.0-or-later
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
 // @description Simple userscript/extension for AniList that allows users to save text activities.
+//@run-at      document-end
 // ==/UserScript==
 
 /*minified libraries*/
@@ -1538,7 +1539,8 @@ function check() {
       }
    }, 200);
 }
-window.addEventListener('load', function() {
+if (document.readyState === "complete") {loadStart();} else {window.addEventListener('load', loadStart);}
+function loadStart () {
    var bodyList = document.querySelector("body")
    var observer = new MutationObserver(function(mutations) {
       mutations.forEach(function(mutation) {
@@ -1557,4 +1559,4 @@ window.addEventListener('load', function() {
       subtree: true
    };
    observer.observe(bodyList, config);
-});
+};
