@@ -571,7 +571,7 @@ function start() {
    if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
       return
    }
-   let filters = document.querySelector(".el-dropdown-menu");
+   let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *)");
    if (!filters) {
       setTimeout(start, 100);
       return
