@@ -2,7 +2,7 @@
 // @name        Anilist Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.38
+// @version     1.1.39
 // @license     GPL-3.0-or-later
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
@@ -550,7 +550,11 @@ interval = null;
 var accessToken = "";
 check();
 if (localStorage.getItem("savetkn")) {
-  accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem("savetkn")));
+  let lztkn = LZString.decompressFromBase64(localStorage.getItem("savetkn"));
+  if (lztkn.length > 10) {
+  accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem("savetkn")));}else{
+    localStorage.removeItem("savetkn");
+  }
 }
 var button = create("li", {
   class: "el-dropdown-menu__item mainbtn",
@@ -561,7 +565,6 @@ button.onclick = () => {
 };
 start();
 function start() {
-  addSavetoActivities();
   if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
     return;
   }
@@ -582,6 +585,7 @@ function start() {
   } else {
     autosave = false;
   }
+    addSavetoActivities();
 }
 function removeactivity(id) {
   if (mainarray.length == 1) {
@@ -645,7 +649,10 @@ function buildactivity() {
         });
         x = JSON.stringify(values).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
         buildacts();
+        console.log(x)
+        if (x.length>1) {
         window.localStorage.setItem("savedactivites", x);
+        }
       } else {
         autosaveact();
         return buildactivity();
