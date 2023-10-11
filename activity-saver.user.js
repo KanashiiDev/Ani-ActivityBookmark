@@ -2,7 +2,7 @@
 // @name        Anilist Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.37
+// @version     1.1.38
 // @license     GPL-3.0-or-later
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
@@ -515,32 +515,27 @@ document.head.appendChild(styleSheet);
 
 //localStorage requirement
 try {
-   localStorage.setItem("test", "test");
-   localStorage.removeItem("test");
+  localStorage.setItem("test", "test");
+  localStorage.removeItem("test");
 } catch (e) {
-   alert("LocalStorage, required for saving settings, is not available.");
-   return
+  alert("LocalStorage, required for saving settings, is not available.");
 }
-
 //get username
 let auth;
-let user = '';
+let user = "";
 let userid = 0;
 try {
-   auth = JSON.parse(localStorage.getItem("auth"))
+  auth = JSON.parse(localStorage.getItem("auth"));
 } catch (e) {
-   console.warn("could not get auth");
-   return
+  console.warn("could not get auth");
 }
-if (auth) user = auth.name, userid = auth.id;
-else try {
-   user = document.querySelector(".nav .links .link[href^='/user/']").href.match(/\/user\/(.*)\//)[1]
-}
-catch (e) {
-   alert("Please login before to use -Activity Saver- script.")
+if (auth) user = auth.name, userid = auth.id;else try {
+  user = document.querySelector(".nav .links .link[href^='/user/']").href.match(/\/user\/(.*)\//)[1];
+} catch (e) {
+  alert("Please login before to use -Activity Saver- script.");
 }
 let username = String(user);
-let usernameurl = String('https://anilist.co/user/' + user + '/');
+let usernameurl = String("https://anilist.co/user/" + user + "/");
 var mainarray = [];
 let onMainDiv = false;
 let notLiked = false;
@@ -554,938 +549,895 @@ var oldHref = document.location.href;
 interval = null;
 var accessToken = "";
 check();
-if(localStorage.getItem("savetkn")) {
-  accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem("savetkn")))
+if (localStorage.getItem("savetkn")) {
+  accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem("savetkn")));
 }
 var button = create("li", {
-   class: "el-dropdown-menu__item mainbtn",
-   id: "Saved Activities"
+  class: "el-dropdown-menu__item mainbtn",
+  id: "Saved Activities"
 }, "Saved Activities");
 button.onclick = () => {
-   getSavedDiv()
+  getSavedDiv();
 };
 start();
-
 function start() {
-   addSavetoActivities();
-   if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
-      return
-   }
-   let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *):not(.actions *)");
-   if (!filters) {setTimeout(start, 100);return}
-   if (filters.children[0].innerText.trim() === "All") {filters.appendChild(button);}
-   else {setTimeout(start, 100);return}
-   let autosaved = JSON.parse(localStorage.getItem("actautosave"));
-   if (autosaved && accessToken.length > 5) {
-      autosave = true;
-   } else {
-      autosave = false
-   }
+  addSavetoActivities();
+  if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
+    return;
+  }
+  let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *):not(.actions *)");
+  if (!filters) {
+    setTimeout(start, 100);
+    return;
+  }
+  if (filters.children[0].innerText.trim() === "All") {
+    filters.appendChild(button);
+  } else {
+    setTimeout(start, 100);
+    return;
+  }
+  let autosaved = JSON.parse(localStorage.getItem("actautosave"));
+  if (autosaved && accessToken.length > 5) {
+    autosave = true;
+  } else {
+    autosave = false;
+  }
 }
-
 function removeactivity(id) {
-   if (mainarray.length == 1) {
-      mainarray = [];
-   }
-   let activitiesidarray = window.localStorage.getItem('savedactivites');
-   let x = activitiesidarray.split(/[.,!,?]/);
-   for (var i in x) {
-      if (x[i] == id) {
-         x.splice(i, 1);
-         break;
-      }
-   }
-   mainarray = x;
-   localStorage.setItem("savedactivites", [(x)]);
-   if (autosave) {
-      autosaveact();
-      delay(1000).then(() => buildactivity())
-   } else {
-      buildactivity();
-   }
+  if (mainarray.length == 1) {
+    mainarray = [];
+  }
+  let activitiesidarray = window.localStorage.getItem("savedactivites");
+  let x = activitiesidarray.split(/[.,!,?]/);
+  for (var i in x) {
+    if (x[i] == id) {
+      x.splice(i, 1);
+      break;
+    }
+  }
+  mainarray = x;
+  localStorage.setItem("savedactivites", [x]);
+  if (autosave) {
+    autosaveact();
+    delay(1000).then(() => buildactivity());
+  } else {
+    buildactivity();
+  }
 }
-
 function buildactivity() {
-   let activitydataDiv = document.getElementById("activitydataDiv");
-   let activitiesidarray = window.localStorage.getItem('savedactivites');
-   var x = "";
-   if (activitydataDiv) {
-      activitydataDiv.innerHTML = "";
-   }
-   if (autosave) {
-      const query = `query($userName: String) {User(name: $userName){about}}`;
-      var variables = {
-         userName: username
+  let activitydataDiv = document.getElementById("activitydataDiv");
+  let activitiesidarray = window.localStorage.getItem("savedactivites");
+  var x = "";
+  if (activitydataDiv) {
+    activitydataDiv.innerHTML = "";
+  }
+  if (autosave) {
+    const query = `query($userName: String) {User(name: $userName){about}}`;
+    var variables = {
+      userName: username
+    };
+    var url = "https://graphql.anilist.co",
+      options = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          query: query,
+          variables: variables
+        })
       };
-      var url = "https://graphql.anilist.co",
-         options = {
-            method: "POST",
-            headers: {
-               "Content-Type": "application/json",
-               Accept: "application/json"
-            },
-            body: JSON.stringify({
-               query: query,
-               variables: variables
-            })
-         };
-
-      function handleResponse(e) {
-         return e.json().then((function(n) {
-            return e.ok ? n : Promise.reject(n)
-         }))
-      }
-      fetch(url, options).then(handleResponse).then(handleData);
-
-      function handleData(data) {
-         let actiddata = "";
-         actiddata = data.data.User.about;
-         let jsonMatch = (actiddata).match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
-         if (jsonMatch) {
-            let data2 = JSON.parse(LZString.decompressFromBase64(jsonMatch[1]));
-            var values = Object.keys(data2).map(function(key) {
-               return data2[key];
-            });
-            x = JSON.stringify(values).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
-            buildacts();
-               window.localStorage.setItem('savedactivites', x);
-         } else {
-            autosaveact();
-            return buildactivity();
-         }
-      }
-   } else {
-      if (activitiesidarray !== null) {
-         x = activitiesidarray.split(/[.,!,?]/);
-         buildacts();
-      }
-   }
-
-   function buildacts() {
-      for (var i = 0; i < x.length; i++) {
-         if (x.length > 0) {
-            getlist(x[i])
-         }
-      }
-   }
-}
-
-function autosaveact() {
-   if (autosave && accessToken.length > 5) {
-      let activitiesidarray = JSON.stringify(window.localStorage.getItem('savedactivites'));
-      let profileJson = {
-         activitiesidarray
-      };
-      let auth = "";
-      const query = `
-	query($userName: String) {User(name: $userName){about}}`;
-      var variables = {
-         userName: username
-      };
-      var url = "https://graphql.anilist.co",
-         options = {
-            method: "POST",
-            headers: {
-               "Content-Type": "application/json",
-               Accept: "application/json"
-            },
-            body: JSON.stringify({
-               query: query,
-               variables: variables
-            })
-         };
-
-      function handleResponse(e) {
-         return e.json().then((function(n) {
-            return e.ok ? n : Promise.reject(n)
-         }))
-      }
-      fetch(url, options).then(handleResponse).then(handleData);
-
-      function handleData(data) {
-         auth = data.data.User.about;
-         let jsonMatch = (auth || "").match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/g);
-         let customcssmatch = (auth || "").match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
-         let customcssmatched;
-         if (customcssmatch) {
-            customcssmatched = customcssmatch[0]
-         } else {
-            customcssmatched = ""
-         }
-         let newDescription = "";
-         if (jsonMatch) {
-            newDescription = customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "").replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, ""));
-         } else {
-            newDescription = customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + ((auth || "")).replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
-         }
-         authAPIcall(`mutation($about: String){UpdateUser(about: $about){about}}`, {
-            about: newDescription
-         }, function(data) {
-            if (!data) {
-               return
-            }
-         })
-      }
-   }
-}
-
-function creatediv() {
-   button.setAttribute("class", "el-dropdown-menu__item active");
-   var listDiv2 = create("div", {
-      class: "maindiv",
-      id: "listDiv2"
-   }, "<b>" + button.innerText + "</b>");
-   let expandbtn = create("button", {
-      class: "mainbtns",
-      id: "expandbtn"
-   });
-   let settingsbtn = create("button", {
-      class: "mainbtns",
-      id: "settingsbtn"
-   });
-   let closebtn = create("button", {
-      class: "mainbtns",
-      id: "closedivbtn"
-   });
-   expandbtn.insertBefore(svg.expand.cloneNode(true), expandbtn.children[0]);
-   settingsbtn.insertBefore(svg.gear.cloneNode(true), settingsbtn.children[0]);
-   closebtn.insertBefore(svg.xmark.cloneNode(true), closebtn.children[0]);
-   expandbtn.onclick = () => {
-      expandDiv()
-   };
-   settingsbtn.onclick = () => {
-      settingsDiv()
-   };
-   closebtn.onclick = () => {
-      closeDiv()
-   };
-   var list = document.querySelector(".activity-feed-wrap + div");
-   listDiv2.append(expandbtn, settingsbtn, closebtn);
-   list.insertBefore(listDiv2, list.children[0]);
-   var activitydataDiv = create("div", {
-      class: "activitydataDiv",
-      id: "activitydataDiv"
-   });
-   listDiv2.appendChild(activitydataDiv);
-   if (!accessToken) {
-      let loginLink = create("a", {
-         class: "mainbtns",
-         id: "signIn",
-         href: "https://anilist.co/api/v2/oauth/authorize?client_id=12455&response_type=token"
-      }, "<b>Sign In</b>");
-      listDiv2.insertBefore(loginLink, listDiv2.children[1]);
-   }
-}
-
-function saveAs(data, fileName, pureText) {
-   let link = create2("a");
-   document.body.appendChild(link);
-   let json = pureText ? data : JSON.stringify(data);
-   let blob = new Blob([json], {
-      type: "octet/stream"
-   });
-   let url = window.URL.createObjectURL(blob);
-   link.href = url;
-   link.download = fileName;
-   link.click();
-   window.URL.revokeObjectURL(url);
-   document.body.removeChild(link)
-}
-
-function settingsDiv() {
-   settings = !settings;
-   if (settings) {
-      let settingDiv = create("div", {
-         class: "maindiv",
-         id: "settingDiv"
-      }, "<b>Settings</b>");
-      let importBtn = create("input", {
-         class: "mainbtns",
-         id: "importBtn",
-         type: "button",
-         value: "Import Saved Activites"
+    function handleResponse(e) {
+      return e.json().then(function (n) {
+        return e.ok ? n : Promise.reject(n);
       });
-      let exportBtn = create("a", {
-         class: "mainbtns",
-         id: "exportBtn"
-      }, "<b>Export Saved Activites</b>");
-      exportBtn.onclick = function() {
-         let activitiesidarray = window.localStorage.getItem('savedactivites');
-         let export_activities = "[](actjson" + LZString.compressToBase64(JSON.stringify(activitiesidarray)) + ")";
-         if (username && activitiesidarray !== null && activitiesidarray !== '') {
-            saveAs(export_activities, "ActivitySaver" + "_activities_" + username + ".json")
-         } else {
-            exportBtn.innerText = "Error: The list is empty.";
-            delay(3000).then(() => exportBtn.innerText = "Export Saved Activites")
-         }
+    }
+    fetch(url, options).then(handleResponse).then(handleData);
+    function handleData(data) {
+      let actiddata = "";
+      actiddata = data.data.User.about;
+      let jsonMatch = actiddata.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+      if (jsonMatch) {
+        let data2 = JSON.parse(LZString.decompressFromBase64(jsonMatch[1]));
+        var values = Object.keys(data2).map(function (key) {
+          return data2[key];
+        });
+        x = JSON.stringify(values).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
+        buildacts();
+        window.localStorage.setItem("savedactivites", x);
+      } else {
+        autosaveact();
+        return buildactivity();
       }
-      importBtn.onclick = function() {
-         importBtn.setAttribute("type", "file");
-         importBtn.setAttribute("name", "json");
-         importBtn.setAttribute("accept", "application/json");
-         importBtn.oninput = function() {
-            let reader = new FileReader();
-            reader.readAsText(importBtn.files[0], "UTF-8");
-            reader.onload = function(evt) {
-               let data = "";
-               try {
-                  data = JSON.parse(evt.target.result);
-                  let datamatch = data.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
-                  if (datamatch && data !== "[](actjsonETI=)") {
-                     let data2 = data.replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "$1");
-                     let data3 = JSON.parse(LZString.decompressFromBase64(data2));
-                     let data4 = JSON.stringify(data3).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
-                     window.localStorage.setItem('savedactivites', data4);
-                  } else {
-                     importBtn.setAttribute("type", "button");
-                     importBtn.removeAttribute("accept");
-                     importBtn.removeAttribute("name");
-                     importBtn.value = "Error: not valid backup file.";
-                     delay(3000).then(() => importBtn.value = "Import Saved Activites")
-                     return
-                  }
-                  if (autosave) {
-                     autosaveact();
-                     if (activitydataDiv) {
-                        delay(1000).then(() => buildactivity())
-                     }
-                  }
-                  importBtn.setAttribute("type", "button");
-                  importBtn.removeAttribute("accept");
-                  importBtn.removeAttribute("name");
-                  buildactivity();
-                  importBtn.value = "Activites Imported!";
-                  delay(3000).then(() => importBtn.value = "Import Saved Activites")
-               } catch (e) {
-                  importBtn.setAttribute("type", "button");
-                  importBtn.removeAttribute("accept");
-                  importBtn.removeAttribute("name");
-                  importBtn.value = "Error: not valid backup file.";
-                  delay(3000).then(() => importBtn.value = "Import Saved Activites")
-                  return
-               }
+    }
+  } else {
+    if (activitiesidarray !== null) {
+      x = activitiesidarray.split(/[.,!,?]/);
+      buildacts();
+    }
+  }
+  function buildacts() {
+    for (var i = 0; i < x.length; i++) {
+      if (x.length > 0) {
+        getlist(x[i]);
+      }
+    }
+  }
+}
+function autosaveact() {
+  if (autosave && accessToken.length > 5) {
+    let activitiesidarray = JSON.stringify(window.localStorage.getItem("savedactivites"));
+    let profileJson = {
+      activitiesidarray
+    };
+    let auth = "";
+    const query = `
+	query($userName: String) {User(name: $userName){about}}`;
+    var variables = {
+      userName: username
+    };
+    var url = "https://graphql.anilist.co",
+      options = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          query: query,
+          variables: variables
+        })
+      };
+    function handleResponse(e) {
+      return e.json().then(function (n) {
+        return e.ok ? n : Promise.reject(n);
+      });
+    }
+    fetch(url, options).then(handleResponse).then(handleData);
+    function handleData(data) {
+      auth = data.data.User.about;
+      let jsonMatch = (auth || "").match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/g);
+      let customcssmatch = (auth || "").match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
+      let customcssmatched;
+      if (customcssmatch) {
+        customcssmatched = customcssmatch[0];
+      } else {
+        customcssmatched = "";
+      }
+      let newDescription = "";
+      if (jsonMatch) {
+        newDescription = customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + (auth || "").replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
+      } else {
+        newDescription = customcssmatched + "[](actjson" + LZString.compressToBase64(JSON.stringify(profileJson)) + ")" + (auth || "").replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, "");
+      }
+      authAPIcall(`mutation($about: String){UpdateUser(about: $about){about}}`, {
+        about: newDescription
+      }, function (data) {
+        if (!data) {
+          return;
+        }
+      });
+    }
+  }
+}
+function creatediv() {
+  button.setAttribute("class", "el-dropdown-menu__item active");
+  var listDiv2 = create("div", {
+    class: "maindiv",
+    id: "listDiv2"
+  }, "<b>" + button.innerText + "</b>");
+  let expandbtn = create("button", {
+    class: "mainbtns",
+    id: "expandbtn"
+  });
+  let settingsbtn = create("button", {
+    class: "mainbtns",
+    id: "settingsbtn"
+  });
+  let closebtn = create("button", {
+    class: "mainbtns",
+    id: "closedivbtn"
+  });
+  expandbtn.insertBefore(svg.expand.cloneNode(true), expandbtn.children[0]);
+  settingsbtn.insertBefore(svg.gear.cloneNode(true), settingsbtn.children[0]);
+  closebtn.insertBefore(svg.xmark.cloneNode(true), closebtn.children[0]);
+  expandbtn.onclick = () => {
+    expandDiv();
+  };
+  settingsbtn.onclick = () => {
+    settingsDiv();
+  };
+  closebtn.onclick = () => {
+    closeDiv();
+  };
+  var list = document.querySelector(".activity-feed-wrap + div");
+  listDiv2.append(expandbtn, settingsbtn, closebtn);
+  list.insertBefore(listDiv2, list.children[0]);
+  var activitydataDiv = create("div", {
+    class: "activitydataDiv",
+    id: "activitydataDiv"
+  });
+  listDiv2.appendChild(activitydataDiv);
+  if (!accessToken) {
+    let loginLink = create("a", {
+      class: "mainbtns",
+      id: "signIn",
+      href: "https://anilist.co/api/v2/oauth/authorize?client_id=12455&response_type=token"
+    }, "<b>Sign In</b>");
+    listDiv2.insertBefore(loginLink, listDiv2.children[1]);
+  }
+}
+function saveAs(data, fileName, pureText) {
+  let link = create2("a");
+  document.body.appendChild(link);
+  let json = pureText ? data : JSON.stringify(data);
+  let blob = new Blob([json], {
+    type: "octet/stream"
+  });
+  let url = window.URL.createObjectURL(blob);
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(link);
+}
+function settingsDiv() {
+  settings = !settings;
+  if (settings) {
+    let settingDiv = create("div", {
+      class: "maindiv",
+      id: "settingDiv"
+    }, "<b>Settings</b>");
+    let importBtn = create("input", {
+      class: "mainbtns",
+      id: "importBtn",
+      type: "button",
+      value: "Import Saved Activites"
+    });
+    let exportBtn = create("a", {
+      class: "mainbtns",
+      id: "exportBtn"
+    }, "<b>Export Saved Activites</b>");
+    exportBtn.onclick = function () {
+      let activitiesidarray = window.localStorage.getItem("savedactivites");
+      let export_activities = "[](actjson" + LZString.compressToBase64(JSON.stringify(activitiesidarray)) + ")";
+      if (username && activitiesidarray !== null && activitiesidarray !== "") {
+        saveAs(export_activities, "ActivitySaver" + "_activities_" + username + ".json");
+      } else {
+        exportBtn.innerText = "Error: The list is empty.";
+        delay(3000).then(() => exportBtn.innerText = "Export Saved Activites");
+      }
+    };
+    importBtn.onclick = function () {
+      importBtn.setAttribute("type", "file");
+      importBtn.setAttribute("name", "json");
+      importBtn.setAttribute("accept", "application/json");
+      importBtn.oninput = function () {
+        let reader = new FileReader();
+        reader.readAsText(importBtn.files[0], "UTF-8");
+        reader.onload = function (evt) {
+          let data = "";
+          try {
+            data = JSON.parse(evt.target.result);
+            let datamatch = data.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+            if (datamatch && data !== "[](actjsonETI=)") {
+              let data2 = data.replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, "$1");
+              let data3 = JSON.parse(LZString.decompressFromBase64(data2));
+              let data4 = JSON.stringify(data3).replace(/\\*"|\[|\]/g, "").split(/[.,!,?]/);
+              window.localStorage.setItem("savedactivites", data4);
+            } else {
+              importBtn.setAttribute("type", "button");
+              importBtn.removeAttribute("accept");
+              importBtn.removeAttribute("name");
+              importBtn.value = "Error: not valid backup file.";
+              delay(3000).then(() => importBtn.value = "Import Saved Activites");
+              return;
             }
-         }
-      }
-
-      let SavetoBtn = create("a", {
-         class: "mainbtns",
-         id: "SavetoBtn"
-      }, "<b>Auto Backup Activities to Profile</b>");
+            if (autosave) {
+              autosaveact();
+              if (activitydataDiv) {
+                delay(1000).then(() => buildactivity());
+              }
+            }
+            importBtn.setAttribute("type", "button");
+            importBtn.removeAttribute("accept");
+            importBtn.removeAttribute("name");
+            buildactivity();
+            importBtn.value = "Activites Imported!";
+            delay(3000).then(() => importBtn.value = "Import Saved Activites");
+          } catch (e) {
+            importBtn.setAttribute("type", "button");
+            importBtn.removeAttribute("accept");
+            importBtn.removeAttribute("name");
+            importBtn.value = "Error: not valid backup file.";
+            delay(3000).then(() => importBtn.value = "Import Saved Activites");
+            return;
+          }
+        };
+      };
+    };
+    let SavetoBtn = create("a", {
+      class: "mainbtns",
+      id: "SavetoBtn"
+    }, "<b>Auto Backup Activities to Profile</b>");
+    SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
+    if (accessToken.length < 5) {
+      localStorage.setItem("actautosave", autosave);
       SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
-      if (accessToken.length < 5) {
-         localStorage.setItem("actautosave", autosave);
-         SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
+    }
+    SavetoBtn.onclick = function () {
+      if (accessToken.length > 5) {
+        autosaveact();
+        autosave = !autosave;
+        localStorage.setItem("actautosave", autosave);
+        SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
+      } else {
+        SavetoBtn.innerText = "Error: Token not found. Please Sign in.";
+        delay(3000).then(() => SavetoBtn.innerText = "Auto Backup Activities to Profile");
       }
-      SavetoBtn.onclick = function() {
-         if (accessToken.length > 5) {
-            autosaveact();
-            autosave = !autosave;
-            localStorage.setItem("actautosave", autosave);
-            SavetoBtn.classList.toggle("btn-active", JSON.parse(localStorage.getItem("actautosave")));
-         } else {
-            SavetoBtn.innerText = "Error: Token not found. Please Sign in.";
-            delay(3000).then(() => SavetoBtn.innerText = "Auto Backup Activities to Profile")
-         }
-      }
-      listDiv2.insertBefore(settingDiv, listDiv2.children[1]);
-      settingDiv.append(importBtn, exportBtn, SavetoBtn);
-   } else {
-      if (document.getElementById("settingDiv")) {
-         document.getElementById("settingDiv").remove();
-      }
-   }
+    };
+    listDiv2.insertBefore(settingDiv, listDiv2.children[1]);
+    settingDiv.append(importBtn, exportBtn, SavetoBtn);
+  } else {
+    if (document.getElementById("settingDiv")) {
+      document.getElementById("settingDiv").remove();
+    }
+  }
 }
-
 function expandDiv() {
-   expanded = !expanded;
-   if (expanded) {
-      let x = document.querySelector(".container");
-      x.insertBefore(listDiv2, x.children[0]);
-      expandbtn.innerHTML = "";
-      expandbtn.insertBefore(svg.compress.cloneNode(true), expandbtn.children[0]);
-      listDiv2.setAttribute("class", "maindiv expanded");
-      activitydataDiv.setAttribute("class", "activitydataDiv expanded2");
-   } else {
-      let x = document.querySelector(".activity-feed-wrap + div");
-      x.insertBefore(listDiv2, x.children[0]);
-      expandbtn.innerHTML = "";
-      expandbtn.insertBefore(svg.expand.cloneNode(true), expandbtn.children[0]);
-      listDiv2.className = listDiv2.className.replace(/(?:^|\s)expanded(?!\S)/g, '');
-      activitydataDiv.className = activitydataDiv.className.replace(/(?:^|\s)expanded2(?!\S)/g, '');
-   }
+  expanded = !expanded;
+  if (expanded) {
+    let x = document.querySelector(".container");
+    x.insertBefore(listDiv2, x.children[0]);
+    expandbtn.innerHTML = "";
+    expandbtn.insertBefore(svg.compress.cloneNode(true), expandbtn.children[0]);
+    listDiv2.setAttribute("class", "maindiv expanded");
+    activitydataDiv.setAttribute("class", "activitydataDiv expanded2");
+  } else {
+    let x = document.querySelector(".activity-feed-wrap + div");
+    x.insertBefore(listDiv2, x.children[0]);
+    expandbtn.innerHTML = "";
+    expandbtn.insertBefore(svg.expand.cloneNode(true), expandbtn.children[0]);
+    listDiv2.className = listDiv2.className.replace(/(?:^|\s)expanded(?!\S)/g, "");
+    activitydataDiv.className = activitydataDiv.className.replace(/(?:^|\s)expanded2(?!\S)/g, "");
+  }
 }
-
 function getSavedDiv() {
-   active = !active;
-   let activefilter = document.querySelector("li.el-dropdown-menu__item.active");
-   if (activefilter) {
-      delay(1000).then(() => activefilter.className = activefilter.className.replace(/(?:^|\s)active(?!\S)/g, ''));
-   }
-   if (active) {
-      creatediv();
-      buildactivity();
-   }
-   if (!active) {
-      closeDiv();
-   }
+  active = !active;
+  let activefilter = document.querySelector("li.el-dropdown-menu__item.active");
+  if (activefilter) {
+    delay(1000).then(() => activefilter.className = activefilter.className.replace(/(?:^|\s)active(?!\S)/g, ""));
+  }
+  if (active) {
+    creatediv();
+    buildactivity();
+  }
+  if (!active) {
+    closeDiv();
+  }
 }
-
 function closeDiv() {
-   var list = document.querySelectorAll("li:nth-child(1)");
-   button.setAttribute("class", "el-dropdown-menu__item");
-   listDiv2.remove();
-   active = false;
+  var list = document.querySelectorAll("li:nth-child(1)");
+  button.setAttribute("class", "el-dropdown-menu__item");
+  listDiv2.remove();
+  active = false;
 }
-
 function addSavetoActivities() {
-   var ActivitySave = false;
-   if (!/^\/(home|user|activity)\/?([\w-]+)?\/?$/.test(location.pathname)) {
-      return
-   }
-   setTimeout(addSavetoActivities, 500);
-   let activityCollection = document.querySelectorAll(".activity-extras-dropdown");
-   activityCollection.forEach(function(activity) {
-      if (!hasOwn(activity, "ActivitySave")) {
-         activity.ActivitySave = true;
-         let activitySave = create("a", {
-            dataIcon: "link",
-            class: "saveActivity el-dropdown-menu__item",
-            id: "saveActivity"
-         }, "<b>Save Activity</b>");
-         activitySave.onclick = function() {
-            let el = activitySave;
-            let id = el.parentElement.children[0].href.split('/')[4];
-            el.click();
-            el.click();
-            el.onclick = () => {
-               el.lastElementChild.innerText = "Saved!";
-               let activitiesidarray = window.localStorage.getItem('savedactivites');
-               if (activitiesidarray !== null) {
-                  let x = activitiesidarray.split(/[.,!,?]/);
-                  for (var i in x) {
-                     if (x[i] == id) {
-                        x.splice(i, 1);
-                        break;
-                     }
-                  }
-                  mainarray = x;
-               }
-               var id = el.parentElement.children[0].href.split('/')[4];
-               for (var i = 0; i <= mainarray.length; i++) {
-                  if (id == mainarray[i]) {
-                     el.lastElementChild.innerText = "Already Saved!";
-                     return
-                  }
-               }
-               mainarray.push(id);
-               localStorage.setItem("savedactivites", [(mainarray)]);
-               let activitydataDiv = document.getElementById("activitydataDiv");
-               if (autosave) {
-                  autosaveact();
-                  if (activitydataDiv) {
-                     delay(1000).then(() => buildactivity())
-                  }
-               } else {
-                  if (activitydataDiv) {
-                     buildactivity();
-                  }
-               }
+  var ActivitySave = false;
+  if (!/^\/(home|user|activity)\/?([\w-]+)?\/?$/.test(location.pathname)) {
+    return;
+  }
+  setTimeout(addSavetoActivities, 500);
+  let activityCollection = document.querySelectorAll(".activity-extras-dropdown");
+  activityCollection.forEach(function (activity) {
+    if (!hasOwn(activity, "ActivitySave")) {
+      activity.ActivitySave = true;
+      let activitySave = create("a", {
+        dataIcon: "link",
+        class: "saveActivity el-dropdown-menu__item",
+        id: "saveActivity"
+      }, "<b>Save Activity</b>");
+      activitySave.onclick = function () {
+        let el = activitySave;
+        let id = el.parentElement.children[0].href.split("/")[4];
+        el.click();
+        el.click();
+        el.onclick = () => {
+          el.lastElementChild.innerText = "Saved!";
+          let activitiesidarray = window.localStorage.getItem("savedactivites");
+          if (activitiesidarray !== null) {
+            let x = activitiesidarray.split(/[.,!,?]/);
+            for (var i in x) {
+              if (x[i] == id) {
+                x.splice(i, 1);
+                break;
+              }
             }
-         }
-         if (activity.closest(".activity-text") || activity.closest(".activity-message")) {
-            activity.append(activitySave);
-            activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);
-         }
+            mainarray = x;
+          }
+          var id = el.parentElement.children[0].href.split("/")[4];
+          for (var i = 0; i <= mainarray.length; i++) {
+            if (id == mainarray[i]) {
+              el.lastElementChild.innerText = "Already Saved!";
+              return;
+            }
+          }
+          mainarray.push(id);
+          localStorage.setItem("savedactivites", [mainarray]);
+          let activitydataDiv = document.getElementById("activitydataDiv");
+          if (autosave) {
+            autosaveact();
+            if (activitydataDiv) {
+              delay(1000).then(() => buildactivity());
+            }
+          } else {
+            if (activitydataDiv) {
+              buildactivity();
+            }
+          }
+        };
+      };
+      if (activity.closest(".activity-text") || activity.closest(".activity-message")) {
+        activity.append(activitySave);
+        activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);
       }
-   })
+    }
+  });
 }
 let actfixtext = "";
-
 function htmlfix(text) {
-   let acttextfix = text
-      .replace(/((?:(?:https?:)?(?:\/\/)?)(?:(?:www)?\.)?youtube\.(?:.+?)\/(?:(?:watch\?v=))[a-zA-Z0-9_-]{11}).*(&list.*(\n)|).*(\))/i, "$1$4")
-      .replace(/youtube\(+((?!https:).*).*\)/igm, " youtube(https://www.youtube.com/watch?v=$1)")
-      .replace(/(~~~)/g, " " + "$1" + " ")
-      .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<strong>' + "$2" + '</strong>')
-      .replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, '<a href=' + "$5" + '>' + "$2" + '</a>')
-      .replace(/``([\s\S]*?)/g, '<code></code>')
-      .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
-      .replace(/(img.*)[\s\S]\/*?(.*())/g, imgfix => {
-         let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");
-         return imgfixed
-      })
-      .replace(/youtube.(h).((.*?).*\))/gi, " ![](ht$2")
-      .replace(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm, embedlink => {
-         let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm);
-         return "<a class='embedLink' href=\"" + embedlinked + "\">" + "</a>" + "</br>"
-      });
-
-   function spoiler() {
-      var actspoiled = false;
-      let actspoiler = document.querySelectorAll(".activitydata span.markdown_spoiler");
-      actspoiler.forEach(function(spoilers) {
-         if (!hasOwn(spoilers, "actspoiled")) {
-            spoilers.actspoiled = true;
-            let contspoiler = create("span", {
-               class: "markdown_spoiler_cont"
-            });
-            let showspoiler = create("span", {
-               class: "markdown_spoiler_show"
-            });
+  let acttextfix = text.replace(/((?:(?:https?:)?(?:\/\/)?)(?:(?:www)?\.)?youtube\.(?:.+?)\/(?:(?:watch\?v=))[a-zA-Z0-9_-]{11}).*(&list.*(\n)|).*(\))/i, "$1$4").replace(/youtube\(+((?!https:).*).*\)/gim, " youtube(https://www.youtube.com/watch?v=$1)").replace(/(~~~)/g, " " + "$1" + " ").replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, "<strong>" + "$2" + "</strong>").replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, "<a href=" + "$5" + ">" + "$2" + "</a>").replace(/``([\s\S]*?)/g, "<code></code>").replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, "<hr>").replace(/(img.*)[\s\S]\/*?(.*())/g, imgfix => {
+    let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, "");
+    return imgfixed;
+  }).replace(/youtube.(h).((.*?).*\))/gi, " ![](ht$2").replace(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm, embedlink => {
+    let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm);
+    return "<a class='embedLink' href=\"" + embedlinked + '">' + "</a>" + "</br>";
+  });
+  function spoiler() {
+    var actspoiled = false;
+    let actspoiler = document.querySelectorAll(".activitydata span.markdown_spoiler");
+    actspoiler.forEach(function (spoilers) {
+      if (!hasOwn(spoilers, "actspoiled")) {
+        spoilers.actspoiled = true;
+        let contspoiler = create("span", {
+          class: "markdown_spoiler_cont"
+        });
+        let showspoiler = create("span", {
+          class: "markdown_spoiler_show"
+        });
+        showspoiler.innerHTML = "Spoiler, click to view";
+        contspoiler.innerHTML = spoilers.innerHTML;
+        contspoiler.style.display = "none";
+        spoilers.innerHTML = "";
+        spoilers.insertBefore(showspoiler, spoilers.children[0]);
+        spoilers.append(contspoiler);
+        showspoiler.onclick = function () {
+          if (contspoiler.style.display === "none") {
+            showspoiler.innerHTML = "Hide";
+            contspoiler.style.display = "block";
+          } else {
             showspoiler.innerHTML = "Spoiler, click to view";
-            contspoiler.innerHTML = spoilers.innerHTML;
             contspoiler.style.display = "none";
-            spoilers.innerHTML = "";
-            spoilers.insertBefore(showspoiler, spoilers.children[0]);
-            spoilers.append(contspoiler);
-            showspoiler.onclick = function() {
-               if (contspoiler.style.display === "none") {
-                  showspoiler.innerHTML = "Hide";
-                  contspoiler.style.display = "block"
-               } else {
-                  showspoiler.innerHTML = "Spoiler, click to view";
-                  contspoiler.style.display = "none"
-               }
+          }
+        };
+      }
+    });
+  }
+  function embed() {
+    var Activityembedded = false;
+    let embeds = document.querySelectorAll(".embedLink");
+    embeds.forEach(function (activity) {
+      if (!hasOwn(activity, "Activityembedded")) {
+        activity.Activityembedded = true;
+        var id = activity.href.split("/")[4];
+        if (id !== undefined) {
+          getanime(id);
+          function getanime(embedid) {
+            var query = `query ($id: Int, $page: Int) {Page (page: $page) {media (id: $id) {type format status startDate {year} endDate {year}	season seasonYear averageScore id siteUrl title { romaji } coverImage { large  }}}}`;
+            var variables = {
+              id: embedid,
+              page: 1
+            };
+            var url = "https://graphql.anilist.co",
+              options = {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json"
+                },
+                body: JSON.stringify({
+                  query: query,
+                  variables: variables
+                })
+              };
+            function handleResponse(e) {
+              return e.json().then(function (n) {
+                return e.ok ? n : Promise.reject(n);
+              });
             }
-         }
-      })
-   };
-
-   function embed() {
-      var Activityembedded = false;
-      let embeds = document.querySelectorAll(".embedLink");
-      embeds.forEach(function(activity) {
-         if (!hasOwn(activity, "Activityembedded")) {
-            activity.Activityembedded = true;
-            var id = activity.href.split('/')[4];
-            if (id !== undefined) {
-               getanime(id);
-
-               function getanime(embedid) {
-                  var query = `query ($id: Int, $page: Int) {Page (page: $page) {media (id: $id) {type format status startDate {year} endDate {year}	season seasonYear averageScore id siteUrl title { romaji } coverImage { large  }}}}`;
-                  var variables = {
-                     id: embedid,
-                     page: 1
-                  };
-                  var url = "https://graphql.anilist.co",
-                     options = {
-                        method: "POST",
-                        headers: {
-                           "Content-Type": "application/json",
-                           Accept: "application/json"
-                        },
-                        body: JSON.stringify({
-                           query: query,
-                           variables: variables
-                        })
-                     };
-
-                  function handleResponse(e) {
-                     return e.json().then((function(n) {
-                        return e.ok ? n : Promise.reject(n)
-                     }))
-                  }
-                  fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
-
-                  function handleData(data) {
-                     let activitySave = create("a", {
-                        class: "saveembed",
-                     }, '<b>' + (data.data.Page.media[0].title.romaji) + '</b>');
-                     let embedimg = create("a", {
-                        class: "cover",
-                        style: {
-                           backgroundImage: "url(" + data.data.Page.media[0].coverImage.large + ")"
-                        }
-                     });
-                     activity.append(activitySave);
-                     activity.href = (data.data.Page.media[0].siteUrl);
-                     activitySave.insertBefore(embedimg, activitySave.children[0]);
-                     if (data.data.Page.media[0].averageScore !== null) {
-                        var avg = " · " + data.data.Page.media[0].averageScore + "%";
-                     } else {
-                        avg = "";
-                     }
-                     if (data.data.Page.media[0].season !== null) {
-                        var season = " · " + data.data.Page.media[0].season + " " + data.data.Page.media[0].seasonYear;
-                     } else {
-                        season = "";
-                     }
-                     let activitySaveDetails = create("a", {
-                        class: "saveembedDetails"
-                     });
-                     if (data.data.Page.media[0].type === "MANGA") {
-                        activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].status) + " · " + (data.data.Page.media[0].startDate.year) + avg);
-                     } else if (data.data.Page.media[0].format === "MUSIC") {
-                        activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + " · " + (data.data.Page.media[0].endDate.year) + avg + '</b>');
-                     } else {
-                        activitySaveDetails.innerHTML = ('<b>' + (data.data.Page.media[0].format) + season + " · " + (data.data.Page.media[0].status) + avg + '</b>');
-                     }
-                     embedimg.nextSibling.append(activitySaveDetails);
-                     let fix = activitySaveDetails.text.replace(/(_)/g, " ");
-                     activitySaveDetails.text = fix;
-                  }
-
-                  function handleError(error) {
-                     console.error(error);
-                  }
-               }
+            fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
+            function handleData(data) {
+              let activitySave = create("a", {
+                class: "saveembed"
+              }, "<b>" + data.data.Page.media[0].title.romaji + "</b>");
+              let embedimg = create("a", {
+                class: "cover",
+                style: {
+                  backgroundImage: "url(" + data.data.Page.media[0].coverImage.large + ")"
+                }
+              });
+              activity.append(activitySave);
+              activity.href = data.data.Page.media[0].siteUrl;
+              activitySave.insertBefore(embedimg, activitySave.children[0]);
+              if (data.data.Page.media[0].averageScore !== null) {
+                var avg = " · " + data.data.Page.media[0].averageScore + "%";
+              } else {
+                avg = "";
+              }
+              if (data.data.Page.media[0].season !== null) {
+                var season = " · " + data.data.Page.media[0].season + " " + data.data.Page.media[0].seasonYear;
+              } else {
+                season = "";
+              }
+              let activitySaveDetails = create("a", {
+                class: "saveembedDetails"
+              });
+              if (data.data.Page.media[0].type === "MANGA") {
+                activitySaveDetails.innerHTML = "<b>" + data.data.Page.media[0].format + " · " + data.data.Page.media[0].status + " · " + data.data.Page.media[0].startDate.year + avg;
+              } else if (data.data.Page.media[0].format === "MUSIC") {
+                activitySaveDetails.innerHTML = "<b>" + data.data.Page.media[0].format + " · " + data.data.Page.media[0].endDate.year + avg + "</b>";
+              } else {
+                activitySaveDetails.innerHTML = "<b>" + data.data.Page.media[0].format + season + " · " + data.data.Page.media[0].status + avg + "</b>";
+              }
+              embedimg.nextSibling.append(activitySaveDetails);
+              let fix = activitySaveDetails.text.replace(/(_)/g, " ");
+              activitySaveDetails.text = fix;
             }
-
-         }
-      })
-   }
-   DOMPurify.sanitize(acttextfix);
-   let fix = acttextfix.replace(/(<strong>.*<\/strong>)((\n|)img\d.*\))/gm, "$1" + '<br>' +  "$2"+ '<br>').replace(/((img.*\d.*\)).*(img\d))/g, "$2" + '<br>' +  "$3").replace(/(<br>*[\W]<br>){1,}/g, '').replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n").replace(/((<\/a>)<br> \n (\W))/gm, '$2 $3').replace(/(?<!<\/br>)(\n).*(<a class='embedLink' href=".*">)/gm, '<br>'+"$2").replace(/<br>.*(\n).*(<a href=.*>)/gm, "$2");
-   actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + "$2" + '</blockquote>').replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">").replace(/(.*<img\b[^>]*>).*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1"+'<br>' + "$2");
-   delay(10).then(() => spoiler());
-   delay(10).then(() => embed());
+            function handleError(error) {
+              console.error(error);
+            }
+          }
+        }
+      }
+    });
+  }
+  DOMPurify.sanitize(acttextfix);
+  let fix = acttextfix.replace(/(<strong>.*<\/strong>)((\n|)img\d.*\))/gm, "$1" + "<br>" + "$2" + "<br>").replace(/((img.*\d.*\)).*(img\d))/g, "$2" + "<br>" + "$3").replace(/(<br>*[\W]<br>){1,}/g, "").replace(/((https:.*)(<b>).*(<\/b>))/g, "$2").replace(/(<br>)/g, "$1 \n").replace(/((<\/a>)<br> \n (\W))/gm, "$2 $3").replace(/(?<!<\/br>)(\n).*(<a class='embedLink' href=".*">)/gm, "<br>" + "$2").replace(/<br>.*(\n).*(<a href=.*>)/gm, "$2");
+  actfixtext = makeHtml(fix).replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, "<blockquote>" + "$2" + "</blockquote>").replace(/(?<![a-z&])#/g, "").replace(/(<img.*)(<a)/g, "$1<br>$2").replace(/\&lt;/g, "<").replace(/\&gt;/g, ">").replace(/(.*<img\b[^>]*>).*(\s*<a\b[^>]*>[^<]*<\/a>)/g, "$1" + "<br>" + "$2");
+  delay(10).then(() => spoiler());
+  delay(10).then(() => embed());
 }
-
 function getlist(id) {
-   if (id === "") {
-      return
-   }
-   var query = `query($id: Int){Activity(id: $id){
+  if (id === "") {
+    return;
+  }
+  var query = `query($id: Int){Activity(id: $id){
     ... on TextActivity{id type siteUrl createdAt text user{name avatar{medium}}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}
 		... on MessageActivity{id type siteUrl createdAt text: message user: messenger{name avatar{medium}}recipient{name}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}}}`;
-   var variables = {
-         id: id
+  var variables = {
+      id: id
+    },
+    url = "https://graphql.anilist.co",
+    options = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
       },
-      url = "https://graphql.anilist.co",
-      options = {
-         method: "POST",
-         headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json"
-         },
-         body: JSON.stringify({
-            query: query,
-            variables: variables
-         })
+      body: JSON.stringify({
+        query: query,
+        variables: variables
+      })
+    };
+  fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
+  let APIlimit = 90,
+    APIcallsUsed = 0,
+    APIcallsUsed_shortTerm = 0,
+    pending = {},
+    APIcounter = setInterval(function () {
+      APIcallsUsed = 0;
+    }, 6e4),
+    APIcounter2 = setInterval(function () {
+      APIcallsUsed_shortTerm = 0;
+    }, 1e4);
+  function handleResponse(e) {
+    APIlimit = e.headers.get("x-ratelimit-limit"), APIcallsUsed = APIlimit - e.headers.get("x-ratelimit-remaining");
+    try {
+      return e.json().then(function (t) {
+        return e.ok ? t : Promise.reject(t);
+      });
+    } catch (t) {
+      throw console.warn(t, e), t;
+    }
+  }
+  function handleData(data) {
+    let activity = data.data.Activity;
+    let id = activity.id;
+    let acttext = activity.text;
+    if (active) {
+      let activityinner = create("div", {
+        class: "activityinner"
+      });
+      let aimg = create("a", {
+        class: "activitydataimg",
+        id: "activitydataimg",
+        href: "https://anilist.co/user/" + activity.user.name,
+        style: {
+          backgroundImage: "url(" + activity.user.avatar.medium + ")"
+        }
+      });
+      let actusername = create("a", {
+        class: "activitydatausername",
+        id: "activitydatausername",
+        href: "https://anilist.co/user/" + activity.user.name
+      }, "" + activity.user.name);
+      let activitydiv = create("div", {
+        class: "activitydata",
+        id: activity.id
+      });
+      let actlinks = create("a", {
+        class: "activitylinksdiv"
+      });
+      let actlink = create("a", {
+        class: "activitylink",
+        id: activity.id,
+        href: activity.siteUrl
+      });
+      let actremove = create("a", {
+        class: "activitylink",
+        id: activity.id
+      });
+      actremove.onclick = () => {
+        removeactivity(id);
       };
-   fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
-   let APIlimit = 90,
-      APIcallsUsed = 0,
-      APIcallsUsed_shortTerm = 0,
-      pending = {},
-      APIcounter = setInterval((function() {
-         APIcallsUsed = 0
-      }), 6e4),
-      APIcounter2 = setInterval((function() {
-         APIcallsUsed_shortTerm = 0
-      }), 1e4);
-
-   function handleResponse(e) {
-      APIlimit = e.headers.get("x-ratelimit-limit"), APIcallsUsed = APIlimit - e.headers.get("x-ratelimit-remaining");
-      try {
-         return e.json().then((function(t) {
-            return e.ok ? t : Promise.reject(t)
-         }))
-      } catch (t) {
-         throw console.warn(t, e), t
+      let userdiv = create("div", {
+        class: "activitydatauserdiv",
+        id: activity.id
+      });
+      if (acttext === undefined) {
+        removeactivity(id);
+        return;
       }
-   }
-
-   function handleData(data) {
-      let activity = data.data.Activity;
-      let id = activity.id;
-      let acttext = activity.text;
-      if (active) {
-         let activityinner = create("div", {
-            class: "activityinner"
-         });
-         let aimg = create("a", {
-            class: "activitydataimg",
-            id: "activitydataimg",
-            href: "https://anilist.co/user/" + activity.user.name,
-            style: {
-               backgroundImage: "url(" + activity.user.avatar.medium + ")"
-            }
-         });
-         let actusername = create("a", {
-            class: "activitydatausername",
-            id: "activitydatausername",
-            href: "https://anilist.co/user/" + activity.user.name
-         }, "" + activity.user.name);
-         let activitydiv = create("div", {
-            class: "activitydata",
+      if (acttext !== undefined) {
+        htmlfix(acttext);
+        activityinner.innerHTML = actfixtext;
+      }
+      activitydataDiv.appendChild(activitydiv);
+      activitydiv.appendChild(activityinner);
+      activitydiv.appendChild(userdiv);
+      aimg.appendChild(actusername);
+      activitydiv.appendChild(actlinks);
+      actlinks.append(actlink, actremove);
+      actlink.insertBefore(svg.link.cloneNode(true), actlink.children[0]);
+      actremove.insertBefore(svg.cross.cloneNode(true), actremove.children[0]);
+      activitydiv.insertBefore(userdiv, activitydiv.children[0]);
+      userdiv.append(aimg, actlinks);
+      let timeWrapper = create2("div", "acttime", false, actusername);
+      let time = nativeTimeElement(activity.createdAt);
+      timeWrapper.appendChild(time);
+      let actions = create2("div", "actions", false, activitydiv);
+      let actionReplies = create2("a", ["action", "replies"], false, actions);
+      let replyCount = create2("span", ["count"], activity.replies.length || "", actionReplies);
+      replyCount.appendChild(document.createTextNode(" "));
+      actionReplies.appendChild(svg.reply.cloneNode(true));
+      actions.appendChild(document.createTextNode(" "));
+      let actionLikes = create2("div", ["action", "likes"], false, actions);
+      actionLikes.title = activity.likes.map(like => like.name).join("\n");
+      let likeWrap = create2("div", ["like-wrap", "activity"], false, actionLikes);
+      let likeButton = create2("div", "button", false, likeWrap);
+      let likeCount = create2("span", "count", activity.likes.length || "", likeButton);
+      likeButton.appendChild(document.createTextNode(" "));
+      likeButton.appendChild(svg.likeNative.cloneNode(true));
+      if (activity.likes.findIndex(thing => thing.name === username) !== -1) {
+        likeButton.classList.add("liked");
+      }
+      if (accessToken) {
+        likeButton.onclick = function () {
+          let indexPlace = activity.likes.findIndex(thing => thing.name === username);
+          if (indexPlace === -1) {
+            activity.likes.push({
+              name: username
+            });
+            likeButton.classList.add("liked");
+          } else {
+            activity.likes.splice(indexPlace, 1);
+            likeButton.classList.remove("liked");
+          }
+          likeCount.innerText = activity.likes.length || "";
+          authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}", {
             id: activity.id
-         });
-         let actlinks = create("a", {
-            class: "activitylinksdiv"
-         });
-         let actlink = create("a", {
-            class: "activitylink",
-            id: activity.id,
-            href: activity.siteUrl
-         });
-         let actremove = create("a", {
-            class: "activitylink",
-            id: activity.id
-         });
-         actremove.onclick = () => {
-            removeactivity(id);
-         };
-         let userdiv = create("div", {
-            class: "activitydatauserdiv",
-            id: activity.id
-         });
-         if (acttext === undefined) {
-            removeactivity(id);
-            return
-         }
-         if (acttext !== undefined) {
-            htmlfix(acttext);
-            activityinner.innerHTML = actfixtext;
-         }
-         activitydataDiv.appendChild(activitydiv);
-         activitydiv.appendChild(activityinner);
-         activitydiv.appendChild(userdiv);
-         aimg.appendChild(actusername);
-         activitydiv.appendChild(actlinks);
-         actlinks.append(actlink, actremove);
-         actlink.insertBefore(svg.link.cloneNode(true), actlink.children[0]);
-         actremove.insertBefore(svg.cross.cloneNode(true), actremove.children[0]);
-         activitydiv.insertBefore(userdiv, activitydiv.children[0]);
-         userdiv.append(aimg, actlinks)
-         let timeWrapper = create2("div", "acttime", false, actusername);
-         let time = nativeTimeElement(activity.createdAt);
-         timeWrapper.appendChild(time);
-         let actions = create2("div", "actions", false, activitydiv);
-         let actionReplies = create2("a", ["action", "replies"], false, actions);
-         let replyCount = create2("span", ["count"], activity.replies.length || "", actionReplies);
-         replyCount.appendChild(document.createTextNode(" "));
-         actionReplies.appendChild(svg.reply.cloneNode(true));
-         actions.appendChild(document.createTextNode(" "));
-         let actionLikes = create2("div", ["action", "likes"], false, actions);
-         actionLikes.title = activity.likes.map(like => like.name).join("\n");
-         let likeWrap = create2("div", ["like-wrap", "activity"], false, actionLikes);
-         let likeButton = create2("div", "button", false, likeWrap);
-         let likeCount = create2("span", "count", activity.likes.length || "", likeButton);
-         likeButton.appendChild(document.createTextNode(" "));
-         likeButton.appendChild(svg.likeNative.cloneNode(true));
-         if (activity.likes.findIndex(thing => thing.name === username) !== -1) {
-            likeButton.classList.add("liked")
-         }
-         if (accessToken) {
-            likeButton.onclick = function() {
-               let indexPlace = activity.likes.findIndex(thing => thing.name === username);
-               if (indexPlace === -1) {
-                  activity.likes.push({
-                     name: username
-                  });
-                  likeButton.classList.add("liked")
-               } else {
-                  activity.likes.splice(indexPlace, 1);
-                  likeButton.classList.remove("liked")
-               }
-               likeCount.innerText = activity.likes.length || "";
-               authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}", {
-                     id: activity.id
-                  },
-                  function(data) {
-                     if (!data) {
-                        authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}", {
-                           id: activity.id
-                        }, data => {})
-                     }
-                  });
+          }, function (data) {
+            if (!data) {
+              authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}", {
+                id: activity.id
+              }, data => {});
             }
-         };
-         let replyWrap = create2("div", "reply-wrap", false, activitydiv, "display:none;");
-         actionReplies.onclick = function() {
-            if (replyWrap.style.display === "none") {
-               replyWrap.style.display = "block"
-            } else {
-               replyWrap.style.display = "none"
-            }
-         };
-
-         let activityReplies = create2("div", "activity-replies", false, replyWrap);
-         activity.replies.forEach(rep => {
-            let reply = create2("div", "reply", false, activityReplies);
-            let header = create2("div", "header", false, reply);
-            let replyAvatar = create2("a", "activitydataimg", false, header);
-            replyAvatar.href = "/user/" + rep.user.name;
-            replyAvatar.style.backgroundImage = `url("${rep.user.avatar.medium}")`;
-            header.appendChild(document.createTextNode(" "));
-            let repName = create2("a", "name", rep.user.name, header);
-            repName.href = "/user/" + rep.user.name;
-            let corner = create2("div", "actions", false, header);
-            let replyActionLikes = create2("div", ["action", "likes"], false, corner, "display: inline-block");
-            const randomDataHate = "data-v-977827fa";
-            let replyLikeWrap = create2("div", "like-wrap", false, replyActionLikes);
-            let replyLikeButton = create2("div", "button", false, replyLikeWrap);
-            let replyLikeCount = create2("span", "count", rep.likes.length || "", replyLikeButton);
-            replyLikeButton.appendChild(document.createTextNode(" "));
-            replyLikeButton.appendChild(svg.likeNative.cloneNode(true));
-            replyLikeButton.title = rep.likes.map(a => a.name).join("\n");
+          });
+        };
+      }
+      let replyWrap = create2("div", "reply-wrap", false, activitydiv, "display:none;");
+      actionReplies.onclick = function () {
+        if (replyWrap.style.display === "none") {
+          replyWrap.style.display = "block";
+        } else {
+          replyWrap.style.display = "none";
+        }
+      };
+      let activityReplies = create2("div", "activity-replies", false, replyWrap);
+      activity.replies.forEach(rep => {
+        let reply = create2("div", "reply", false, activityReplies);
+        let header = create2("div", "header", false, reply);
+        let replyAvatar = create2("a", "activitydataimg", false, header);
+        replyAvatar.href = "/user/" + rep.user.name;
+        replyAvatar.style.backgroundImage = `url("${rep.user.avatar.medium}")`;
+        header.appendChild(document.createTextNode(" "));
+        let repName = create2("a", "name", rep.user.name, header);
+        repName.href = "/user/" + rep.user.name;
+        let corner = create2("div", "actions", false, header);
+        let replyActionLikes = create2("div", ["action", "likes"], false, corner, "display: inline-block");
+        const randomDataHate = "data-v-977827fa";
+        let replyLikeWrap = create2("div", "like-wrap", false, replyActionLikes);
+        let replyLikeButton = create2("div", "button", false, replyLikeWrap);
+        let replyLikeCount = create2("span", "count", rep.likes.length || "", replyLikeButton);
+        replyLikeButton.appendChild(document.createTextNode(" "));
+        replyLikeButton.appendChild(svg.likeNative.cloneNode(true));
+        replyLikeButton.title = rep.likes.map(a => a.name).join("\n");
+        if (rep.likes.some(like => like.name === username)) {
+          replyLikeButton.classList.add("liked");
+        }
+        if (accessToken) {
+          replyLikeButton.onclick = function () {
+            authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}", {
+              id: rep.id
+            }, function (data2) {
+              if (!data2) {
+                authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}", {
+                  id: rep.id
+                }, function (data3) {});
+              }
+            });
             if (rep.likes.some(like => like.name === username)) {
-               replyLikeButton.classList.add("liked")
-            }
-            if (accessToken) {
-               replyLikeButton.onclick = function() {
-                  authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}", {
-                        id: rep.id
-                     },
-                     function(data2) {
-                        if (!data2) {
-                           authAPIcall("mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}", {
-                              id: rep.id
-                           }, function(data3) {})
-                        }
-                     });
-                  if (rep.likes.some(like => like.name === username)) {
-                     rep.likes.splice(rep.likes.findIndex(user => user.name === username), 1);
-                     replyLikeButton.classList.remove("liked");
-                     if (rep.likes.length > 0) {
-                        replyLikeButton.querySelector(".count").innerText = rep.likes.length
-                     } else {
-                        replyLikeButton.querySelector(".count").innerText = ""
-                     }
-                  } else {
-                     rep.likes.push({
-                        name: username
-                     });
-                     replyLikeButton.classList.add("liked");
-                     replyLikeButton.querySelector(".count").innerText = rep.likes.length;
-                  }
-               }
-               if (rep.user.name === username) {
-                  corner.style.cssText = 'width: 165px;left: calc(100% - 175px);top: 6px';
-                  let replyEdit = create("div", {
-                     class: "mainbtns",
-                     id: "editreply",
-                     style: {
-                        background: "transparent",
-                        color: "rgb(var(--color-blue-dim))"
-                     }
-                  });
-                  replyEdit.insertBefore(svg.edit.cloneNode(true), replyEdit.children[0]);
-                  corner.insertBefore(replyEdit, corner.children[0]);
-                  let active = true;
-                  replyEdit.onclick = function() {
-
-                     if (active) {
-                        let statusInput = create2("div","inputbox", false, "text-align: -webkit-center;");
-                        let inputArea = create2("textarea", "el-textarea__inner", false, statusInput);
-                        let inputButtons = create2("div", "inputButtons", false, statusInput, "margin-bottom:10px;float: right;padding: 20px 2% 15px 15px;");
-                        let cancelButton = create2("div", ["replybutton", "cancel"], "Cancel", inputButtons, "background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);");
-                        let publishButton = create2("div", "replybutton", "Publish", inputButtons, "display:none;");
-                        inputArea.value = rep.text;
-                        reply.parentNode.insertBefore(statusInput, reply.nextSibling);
-                        inputArea.style.cssText = 'height:0px';
-                       statusInput.style.cssText = 'display: flow-root';
-                        inputArea.onfocus = function() {
-                           cancelButton.style.display = "inline";
-                           publishButton.style.display = "inline";
-                        };
-                        inputArea.addEventListener('keydown', autosize);
-
-                        function autosize() {
-                           var el = this;
-                           setTimeout(function() {
-                              el.style.cssText = 'height:auto';
-                              el.style.cssText = 'height:' + el.scrollHeight + 'px';
-                           }, 0);
-                        }
-                        cancelButton.onclick = function() {
-                           inputArea.value = "";
-                           inputArea.style.cssText = 'height:0px';
-                           cancelButton.style.display = "none";
-                           publishButton.style.display = "none";
-                           active = true;
-                           statusInput.remove();
-                        };
-                        publishButton.onclick = function() {
-                           authAPIcall(
-                              `mutation($text: String,$Id: Int){id text(asHtml: true)}}`, {
-                                 text: inputArea.value,
-                                 Id: rep.id
-                              },
-                              data => {
-                                 if (data) {
-                                    delay(1000).then(() => buildactivity());
-                                 }
-                              }
-                           )
-                        }
-                        cancelButton.style.display = "none";
-                        publishButton.style.display = "none";
-                     }
-                     active = false;
-                  }
-                  let replyRemove = create("div", {
-                     class: "mainbtns",
-                     id: "removereply",
-                     style: {
-                        background: "transparent",
-                        transform: "translateX(2px)",
-                        color: "rgb(var(--color-blue-dim))"
-                     }
-                  });
-                  replyRemove.insertBefore(svg.xmark.cloneNode(true), replyRemove.children[0]);
-                  corner.insertBefore(replyRemove, corner.children[0]);
-                  replyRemove.onclick = function() {
-                     authAPIcall(
-                        `mutation($Id: Int){DeleteActivityReply(id: $Id) {deleted}}`, {
-                           Id: rep.id
-                        },
-                        data => {
-                           if (data) {
-                              delay(1000).then(() => buildactivity());
-                           }
-                        }
-                     )
-                  }
-               }
-            }
-            let replyActionTime = create2("div", ["action", "time"], false, corner, "display: inline-block");
-            let replyTime = nativeTimeElement(rep.createdAt);
-            replyActionTime.appendChild(replyTime);
-            let replyMarkdown = create2("div", "reply-markdown", false, reply);
-            let markdown = create2("div", "markdown", false, replyMarkdown);
-            let repText = rep.text;
-            if (repText !== undefined) {
-               htmlfix(repText);
-               markdown.innerHTML = actfixtext;
-            }
-         })
-        if(accessToken){
-         let statusInput = create2("div", false, false, replyWrap, "padding-top:10px; text-align: -webkit-center;");
-         let inputArea = create2("textarea", "el-textarea__inner", false, statusInput);
-         let inputButtons = create2("div", "inputButtons", false, statusInput, "float: right;padding: 20px 2% 15px 15px;");
-         let cancelButton = create2("div", ["replybutton", "cancel"], "Cancel", inputButtons, "background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);");
-         let publishButton = create2("div", "replybutton", "Publish", inputButtons, "display:none;");
-         inputArea.placeholder = "Write a reply..";
-         inputArea.style.cssText = 'height:0px';
-         inputArea.onfocus = function() {
-            cancelButton.style.display = "inline";
-            publishButton.style.display = "inline";
-         };
-         inputArea.addEventListener('keydown', autosize);
-         function autosize() {
-            var el = this;
-            setTimeout(function() {
-              if(inputArea.scrollHeight > 54) {
-               el.style.cssText = 'height:auto';
-               el.style.cssText = 'height:' + el.scrollHeight + 'px';
+              rep.likes.splice(rep.likes.findIndex(user => user.name === username), 1);
+              replyLikeButton.classList.remove("liked");
+              if (rep.likes.length > 0) {
+                replyLikeButton.querySelector(".count").innerText = rep.likes.length;
+              } else {
+                replyLikeButton.querySelector(".count").innerText = "";
               }
-              if(inputArea.value.length < 20) {
-                el.style.cssText = 'height:0';
+            } else {
+              rep.likes.push({
+                name: username
+              });
+              replyLikeButton.classList.add("liked");
+              replyLikeButton.querySelector(".count").innerText = rep.likes.length;
+            }
+          };
+          if (rep.user.name === username) {
+            corner.style.cssText = "width: 165px;left: calc(100% - 175px);top: 6px";
+            let replyEdit = create("div", {
+              class: "mainbtns",
+              id: "editreply",
+              style: {
+                background: "transparent",
+                color: "rgb(var(--color-blue-dim))"
               }
-            }, 0);
-         }
-         cancelButton.onclick = function() {
-            inputArea.value = "";
-            inputArea.style.cssText = 'height:0px';
-            cancelButton.style.display = "none";
-            publishButton.style.display = "none";
-         };
-         publishButton.onclick = function() {
-            authAPIcall(
-               `mutation($text: String,$activityId: Int){
+            });
+            replyEdit.insertBefore(svg.edit.cloneNode(true), replyEdit.children[0]);
+            corner.insertBefore(replyEdit, corner.children[0]);
+            let active = true;
+            replyEdit.onclick = function () {
+              if (active) {
+                let statusInput = create2("div", "inputbox", false, "text-align: -webkit-center;");
+                let inputArea = create2("textarea", "el-textarea__inner", false, statusInput);
+                let inputButtons = create2("div", "inputButtons", false, statusInput, "margin-bottom:10px;float: right;padding: 20px 2% 15px 15px;");
+                let cancelButton = create2("div", ["replybutton", "cancel"], "Cancel", inputButtons, "background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);");
+                let publishButton = create2("div", "replybutton", "Publish", inputButtons, "display:none;");
+                inputArea.value = rep.text;
+                reply.parentNode.insertBefore(statusInput, reply.nextSibling);
+                inputArea.style.cssText = "height:0px";
+                statusInput.style.cssText = "display: flow-root";
+                inputArea.onfocus = function () {
+                  cancelButton.style.display = "inline";
+                  publishButton.style.display = "inline";
+                };
+                inputArea.addEventListener("keydown", autosize);
+                function autosize() {
+                  var el = this;
+                  setTimeout(function () {
+                    el.style.cssText = "height:auto";
+                    el.style.cssText = "height:" + el.scrollHeight + "px";
+                  }, 0);
+                }
+                cancelButton.onclick = function () {
+                  inputArea.value = "";
+                  inputArea.style.cssText = "height:0px";
+                  cancelButton.style.display = "none";
+                  publishButton.style.display = "none";
+                  active = true;
+                  statusInput.remove();
+                };
+                publishButton.onclick = function () {
+                  authAPIcall(`mutation($text: String,$Id: Int){id text(asHtml: true)}}`, {
+                    text: inputArea.value,
+                    Id: rep.id
+                  }, data => {
+                    if (data) {
+                      delay(1000).then(() => buildactivity());
+                    }
+                  });
+                };
+                cancelButton.style.display = "none";
+                publishButton.style.display = "none";
+              }
+              active = false;
+            };
+            let replyRemove = create("div", {
+              class: "mainbtns",
+              id: "removereply",
+              style: {
+                background: "transparent",
+                transform: "translateX(2px)",
+                color: "rgb(var(--color-blue-dim))"
+              }
+            });
+            replyRemove.insertBefore(svg.xmark.cloneNode(true), replyRemove.children[0]);
+            corner.insertBefore(replyRemove, corner.children[0]);
+            replyRemove.onclick = function () {
+              authAPIcall(`mutation($Id: Int){DeleteActivityReply(id: $Id) {deleted}}`, {
+                Id: rep.id
+              }, data => {
+                if (data) {
+                  delay(1000).then(() => buildactivity());
+                }
+              });
+            };
+          }
+        }
+        let replyActionTime = create2("div", ["action", "time"], false, corner, "display: inline-block");
+        let replyTime = nativeTimeElement(rep.createdAt);
+        replyActionTime.appendChild(replyTime);
+        let replyMarkdown = create2("div", "reply-markdown", false, reply);
+        let markdown = create2("div", "markdown", false, replyMarkdown);
+        let repText = rep.text;
+        if (repText !== undefined) {
+          htmlfix(repText);
+          markdown.innerHTML = actfixtext;
+        }
+      });
+      if (accessToken) {
+        let statusInput = create2("div", false, false, replyWrap, "padding-top:10px; text-align: -webkit-center;");
+        let inputArea = create2("textarea", "el-textarea__inner", false, statusInput);
+        let inputButtons = create2("div", "inputButtons", false, statusInput, "float: right;padding: 20px 2% 15px 15px;");
+        let cancelButton = create2("div", ["replybutton", "cancel"], "Cancel", inputButtons, "background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);");
+        let publishButton = create2("div", "replybutton", "Publish", inputButtons, "display:none;");
+        inputArea.placeholder = "Write a reply..";
+        inputArea.style.cssText = "height:0px";
+        inputArea.onfocus = function () {
+          cancelButton.style.display = "inline";
+          publishButton.style.display = "inline";
+        };
+        inputArea.addEventListener("keydown", autosize);
+        function autosize() {
+          var el = this;
+          setTimeout(function () {
+            if (inputArea.scrollHeight > 54) {
+              el.style.cssText = "height:auto";
+              el.style.cssText = "height:" + el.scrollHeight + "px";
+            }
+            if (inputArea.value.length < 20) {
+              el.style.cssText = "height:0";
+            }
+          }, 0);
+        }
+        cancelButton.onclick = function () {
+          inputArea.value = "";
+          inputArea.style.cssText = "height:0px";
+          cancelButton.style.display = "none";
+          publishButton.style.display = "none";
+        };
+        publishButton.onclick = function () {
+          authAPIcall(`mutation($text: String,$activityId: Int){
 									SaveActivityReply(text: $text,activityId: $activityId){
 										id
 										user{name}
@@ -1494,62 +1446,63 @@ function getlist(id) {
 										createdAt
 									}
 								}`, {
-                  text: inputArea.value,
-                  activityId: activity.id
-               },
-               data => {
-                  if (data) {
-                     delay(1000).then(() => buildactivity());
-                  }
-               }
-            )
-         }
-         inputArea.value = "";
-         cancelButton.style.display = "none";
-         publishButton.style.display = "none";
-      }}
-   }
-
-   function handleError(e) {
-      console.log(e);
-      if (e.errors) {
-         if (
-            e.errors.some(thing => thing.message === "Not Found.")) {
-            removeactivity(id)
-         }
+            text: inputArea.value,
+            activityId: activity.id
+          }, data => {
+            if (data) {
+              delay(1000).then(() => buildactivity());
+            }
+          });
+        };
+        inputArea.value = "";
+        cancelButton.style.display = "none";
+        publishButton.style.display = "none";
       }
-   }
-}
-
-function check() {
-   let current = "";
-   let mainLoop = setInterval(() => {
-      if (document.URL !== current) {
-         let oldURL = current + "";
-         current = document.URL;
-         if (/^https:\/\/anilist\.co\/home#access_token/.test(current)) {
-            let tokenList = location.hash.split("&").map(a => a.split("="));
-            accessToken = tokenList[0][1];
-            localStorage.setItem("savetkn", LZString.compressToBase64(JSON.stringify(accessToken)));
-            location.replace(location.protocol + "//" + location.hostname + location.pathname);
-         }
-      }
-   }, 200);
-}
-
-var target = document.querySelector('body');
-var observer = new MutationObserver(function(mutationsList, observer) {
-    for(var mutation of mutationsList) {
-        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-         if (oldHref != document.location.href) {
-            oldHref = document.location.href;
-            active = false;
-            start();
-            set(button, {
-               class: "el-dropdown-menu__item"
-            });
-         }
-        }
     }
+  }
+  function handleError(e) {
+    console.log(e);
+    if (e.errors) {
+      if (e.errors.some(thing => thing.message === "Not Found.")) {
+        removeactivity(id);
+      }
+    }
+  }
+}
+function check() {
+  let current = "";
+  let mainLoop = setInterval(() => {
+    if (document.URL !== current) {
+      let oldURL = current + "";
+      current = document.URL;
+      if (/^https:\/\/anilist\.co\/home#access_token/.test(current)) {
+        let tokenList = location.hash.split("&").map(a => a.split("="));
+        accessToken = tokenList[0][1];
+        localStorage.setItem("savetkn", LZString.compressToBase64(JSON.stringify(accessToken)));
+        location.replace(location.protocol + "//" + location.hostname + location.pathname);
+      }
+    }
+  }, 200);
+}
+var target = document.querySelector("body");
+var observer = new MutationObserver(function (mutationsList, observer) {
+  for (var mutation of mutationsList) {
+    if(/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname) && mutation.addedNodes[0] !== undefined && mutation.addedNodes[0].className === "activity-entry activity-text") {
+      addSavetoActivities();
+    }
+    if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
+      if (oldHref != document.location.href) {
+        oldHref = document.location.href;
+        active = false;
+        start();
+        set(button, {
+          class: "el-dropdown-menu__item"
+        });
+      }
+    }
+  }
 });
-observer.observe(target, { childList: true, subtree: true });
+observer.observe(target, {
+  childList: true,
+  subtree: true
+});
