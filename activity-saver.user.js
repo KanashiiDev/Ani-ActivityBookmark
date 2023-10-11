@@ -2,7 +2,7 @@
 // @name        Anilist Activity Saver
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.36
+// @version     1.1.37
 // @license     GPL-3.0-or-later
 // @require     https://code.jquery.com/jquery-3.3.1.min.js
 // @author      KanashiiDev
@@ -572,12 +572,9 @@ function start() {
       return
    }
    let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *):not(.actions *)");
-   if (!filters) {
-      setTimeout(start, 100);
-      return
-   } {
-      filters.appendChild(button);
-   }
+   if (!filters) {setTimeout(start, 100);return}
+   if (filters.children[0].innerText.trim() === "All") {filters.appendChild(button);}
+   else {setTimeout(start, 100);return}
    let autosaved = JSON.parse(localStorage.getItem("actautosave"));
    if (autosaved && accessToken.length > 5) {
       autosave = true;
