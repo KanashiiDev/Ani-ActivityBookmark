@@ -8,7 +8,7 @@
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
 // @description Simple userscript/extension for AniList that allows users to save text activities.
-//@run-at      document-end
+// @run-at      document-end
 // ==/UserScript==
 
 /*minified libraries*/
@@ -571,7 +571,7 @@ function start() {
    if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
       return
    }
-   let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *)");
+   let filters = document.querySelector(".el-dropdown-menu:not(.details *):not(.time *):not(.actions *)");
    if (!filters) {
       setTimeout(start, 100);
       return
@@ -1539,11 +1539,11 @@ function check() {
       }
    }, 200);
 }
-if (document.readyState === "complete") {loadStart();} else {window.addEventListener('load', loadStart);}
-function loadStart () {
-   var bodyList = document.querySelector("body")
-   var observer = new MutationObserver(function(mutations) {
-      mutations.forEach(function(mutation) {
+
+var target = document.querySelector('body');
+var observer = new MutationObserver(function(mutationsList, observer) {
+    for(var mutation of mutationsList) {
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
          if (oldHref != document.location.href) {
             oldHref = document.location.href;
             active = false;
@@ -1552,11 +1552,7 @@ function loadStart () {
                class: "el-dropdown-menu__item"
             });
          }
-      });
-   });
-   var config = {
-      childList: true,
-      subtree: true
-   };
-   observer.observe(bodyList, config);
-};
+        }
+    }
+});
+observer.observe(target, { childList: true, subtree: true });
