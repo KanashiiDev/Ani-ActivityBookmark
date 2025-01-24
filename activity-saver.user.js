@@ -3,7 +3,7 @@
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
 // @grant       none
-// @version     1.2
+// @version     1.2.1
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
 // @description Simple userscript/extension for AniList that allows users to bookmark text activities.
@@ -474,7 +474,8 @@ overflow:hidden!important
   display: grid
 }
 
-#settingDiv .settingsText {
+#settingDiv .settingsText,
+#settingDiv #resetDbBtn {
     grid-column: 1 / -1
 }
 
@@ -1783,14 +1784,16 @@ function addSavetoActivities(type) {
         el.onclick = async () => {
           el.lastElementChild.innerText = 'Saved!';
           let activitiesIdArray = await mainDB.getItem('savedActivities');
+          if(!Array.isArray(activitiesIdArray)) {
+            await mainDB.setItem('savedActivities', []);
+          }
           let mainArray = activitiesIdArray ? activitiesIdArray : [];
           if (mainArray.includes(id)) {
             el.lastElementChild.innerText = 'Already Saved!';
             return;
           }
-          //mainArray.push(id);
+          mainArray.push(id);
           await mainDB.setItem('savedActivities', mainArray);
-
           let activityDataDiv = document.getElementById('activityDataDiv');
             if (activityDataDiv) {
               buildActivity();
@@ -1812,9 +1815,10 @@ function addSavetoActivities(type) {
       button.addEventListener('click', async function () {
         try {
           const buttonId = button.getAttribute('id');
+          const isMainDiv = $(this).attr('mainDiv');
           const id = buttonId ? buttonId : $(this).closest('.activity-text').find('.el-dropdown-menu__item:contains("Direct Link")')?.attr('href').split('/')[2];
           let isLiked = $(this).hasClass('liked');
-          if (buttonId) {
+          if (isMainDiv) {
             isLiked = !isLiked;
           }
           if (!id) {
@@ -1823,6 +1827,9 @@ function addSavetoActivities(type) {
            button.setAttribute('id', id);
           }
           let mainArray = await mainDB.getItem('likeHistory') || [];
+          if(!Array.isArray(mainArray)) {
+            await mainDB.setItem('likeHistory', []);
+          }
           if (mainArray.includes(id)) {
             if (isLiked) {
               if (typeof mainArray === "string") {
@@ -1932,6 +1939,11 @@ function settingsDiv() {
     let exportBtn = create('a', {class: 'mainbtns', id: 'exportBtn',},'<b>Export Saved Activites</b>');
     let exportHistoryBtn = create('a', {class: 'mainbtns', id: 'exportHistoryBtn',},'<b>Export Like History</b>');
     let importHistoryBtn = create('input', {class: 'mainbtns', id: 'importHistoryBtn', type: 'button', value: 'Import Like History'});
+    let clearHistoryBtn = create('a', {class: 'mainbtns', id: 'clearHistoryBtn',},'<b>Clear Like History</b>');
+    let autoSaveBtn = create('a', {class: 'mainbtns', id: 'autoSaveBtn',},'<b>Auto Backup Activities to Profile</b>');
+    let resetDbBtn = create('a', {class: 'mainbtns', id: 'resetDbBtn',},'<b>Reset Databases</b>');
+
+    //Export Saved Activities Button Onclick
     exportBtn.onclick = async function () {
     let savedArray = await mainDB.getItem('savedActivities');
       let export_activities = '[](actjson' + LZString.compressToBase64(JSON.stringify(savedArray)) + ')';
@@ -1945,6 +1957,7 @@ function settingsDiv() {
       }
     };
 
+    //Import Saved Activities Button Onclick
     importBtn.onclick = async function () {
       importBtn.setAttribute('type', 'file');
       importBtn.setAttribute('name', 'json');
@@ -1995,6 +2008,7 @@ function settingsDiv() {
       }
     };
 
+    //Export History Button Onclick
     exportHistoryBtn.onclick = async function () {
     let savedArray = await mainDB.getItem('likeHistory');
       let export_activities = '[](actjson' + LZString.compressToBase64(JSON.stringify(savedArray)) + ')';
@@ -2008,6 +2022,7 @@ function settingsDiv() {
       }
     };
 
+    //Import History Button Onclick
     importHistoryBtn.onclick = async function () {
       importHistoryBtn.setAttribute('type', 'file');
       importHistoryBtn.setAttribute('name', 'json');
@@ -2049,13 +2064,13 @@ function settingsDiv() {
       }
     };
 
-    let SavetoBtn = create('a', {class: 'mainbtns', id: 'SavetoBtn',},'<b>Auto Backup Activities to Profile</b>');
-    SavetoBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
+    //autoSave Button Onclick
+    autoSaveBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
     if (accessToken.length < 5) {
       localStorage.setItem('actautosave', autosave);
-      SavetoBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
+      autoSaveBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
     }
-    SavetoBtn.onclick = async function () {
+    autoSaveBtn.onclick = async function () {
       if (accessToken.length > 5) {
         await autoSaveActivity();
         autosave = !autosave;
@@ -2066,7 +2081,8 @@ function settingsDiv() {
         delay(3000).then(() => (SavetoBtn.innerText = 'Auto Backup Activities to Profile'));
       }
     };
-    let clearHistoryBtn = create('a', {class: 'mainbtns', id: 'clearHistoryBtn',},'<b>Clear Like History</b>');
+
+    //Clear History Button Onclick
     let confirmation = 0;
     clearHistoryBtn.onclick = async function () {
       confirmation++;
@@ -2081,8 +2097,24 @@ function settingsDiv() {
         confirmation = 0;
       }
     };
+    //Reset Databases Button Onclick
+    let resetConfirmation = 0;
+    resetDbBtn.onclick = async function () {
+      resetConfirmation++;
+      if (resetConfirmation == 1) {
+        resetDbBtn.innerHTML = '<b style="color: #e85d75;">Reset Databases (CONFIRM)</b>';
+      }
+      if (resetConfirmation == 2) {
+        await mainDB.setItem('likeHistory', []);
+        await mainDB.setItem('savedActivities', []);
+        resetDbBtn.innerHTML = '<b>The databases have been reset!</b>';
+        await delay(2000);
+        resetDbBtn.innerHTML = '<b>Reset Databases</b>';
+        resetConfirmation = 0;
+      }
+    };
     listDiv2.insertBefore(settingDiv, listDiv2.children[1]);
-    settingDiv.append(importBtn, importHistoryBtn, exportBtn, exportHistoryBtn, SavetoBtn, clearHistoryBtn);
+    settingDiv.append(importBtn, importHistoryBtn, exportBtn, exportHistoryBtn, autoSaveBtn, clearHistoryBtn, resetDbBtn);
   } else {
     if (document.getElementById('settingDiv')) {
       document.getElementById('settingDiv').remove();
@@ -2205,8 +2237,15 @@ async function getActivity(id, source) {
         likeButton.appendChild(document.createTextNode(' '));
         likeButton.appendChild(svg.likeNative.cloneNode(true));
         likeButton.setAttribute('id',activity.id);
+        likeButton.setAttribute('mainDiv',"1");
         if (activity.likes.findIndex((thing) => thing.name === username) !== -1) {
           likeButton.classList.add('liked');
+        }
+        if(source) {
+          let isLiked = likeButton.classList.contains('liked');
+          if (!isLiked) {
+            await removeActivity(id,'likeHistory');
+          }
         }
         if (accessToken) {
           likeButton.onclick = function () {
