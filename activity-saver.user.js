@@ -1,18 +1,672 @@
 // ==UserScript==
-// @name        Anilist Activity Saver
+// @name        Activity Bookmark & Like History
 // @namespace   https://github.com/KanashiiDev
 // @match       https://anilist.co/*
-// @version     1.1.40
-// @license     GPL-3.0-or-later
-// @require     https://code.jquery.com/jquery-3.3.1.min.js
-// @require     https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js
-// @require     https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js
-// @require     https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
+// @grant       none
+// @version     1.2
 // @author      KanashiiDev
 // @supportURL  https://github.com/KanashiiDev/Ani-ActivitySaver/issues
-// @description Simple userscript/extension for AniList that allows users to save text activities.
+// @description Simple userscript/extension for AniList that allows users to bookmark text activities.
+// @license     GPL-3.0-or-later
 // @run-at      document-end
+// @require     https://code.jquery.com/jquery-3.3.1.min.js
+// @require     https://cdn.jsdelivr.net/npm/dompurify@3.2.3/dist/purify.min.js
+// @require     https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js
+// @require     https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js
+// @require     https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js
 // ==/UserScript==
+
+//CSS
+var styles = `
+.activityData span.markdown_spoiler {
+    display:block;
+    margin:10px
+}
+
+.activityData span.markdown_spoiler_cont {
+    margin-top:10px
+}
+
+.activityData span.markdown_spoiler_show {
+    cursor: pointer;
+    padding: 5px;
+    padding-top: 3px;
+    font-weight: 700;
+    padding-bottom: 3px;
+    background: rgb(var(--color-foreground));
+    font-size:12px;
+    color: rgb(var(--color-blue));
+    -webkit-border-radius: 5px;
+            border-radius: 5px
+}
+
+.activityData .button.liked {
+  color: rgb(var(--color-red));
+}
+
+.activityData .activityLinksDiv {
+  color: rgb(var(--color-blue-dim));
+  position: relative;
+  left: -webkit-calc(100% - 105px);
+  left: calc(100% - 105px);
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  font-weight: 800;
+}
+
+.activityData .actions {
+    color: rgb(var(--color-blue-dim));
+    position: relative;
+    left: -webkit-calc(100% - 85px);
+    left: calc(100% - 85px);
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
+    display: flex;
+    width: 95px;
+    font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+    font-weight: 800;
+    -webkit-box-pack: end;
+    -webkit-justify-content: flex-end;
+        -ms-flex-pack: end;
+            justify-content: flex-end;
+}
+
+.activityData .action {
+  color: rgb(var(--color-blue-dim))!important;
+  cursor: pointer;
+  display: inline-block;
+  padding-left: 5px;
+  -webkit-transition: .2s;
+  -o-transition: .2s;
+  transition: .2s;
+}
+
+.activityData .time {
+  font: 800 1.1rem Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  color: rgb(var(--color-text-lighter));
+  position: relative;
+  right: 12px;
+  top: 12px;
+}
+
+.activityData .acttime {
+  font: 800 1.1rem Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  color: rgb(var(--color-text-lighter));
+  margin-top:3px
+}
+
+.activityData .reply .actions {
+  font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+  font-weight: 700;
+  top: 12px;
+  position: absolute;
+  width:125px;
+  left: -webkit-calc(100% - 135px);
+  left: calc(100% - 135px);
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          -webkit-align-items: center;
+          align-items: center
+}
+
+.activityData .reply .action {
+  padding-left: 5px;
+  -webkit-transition: .2s;
+  -o-transition: .2s;
+  transition: .2s;
+}
+
+.activityData .reply  .action.likes {
+  padding-right: 10px;
+}
+
+.activityData .reply .time {
+  color: rgb(var(--color-text-lighter));
+  display: contents!important;
+}
+
+.activityData .reply-markdown {
+  padding: 0px 2px
+}
+.activityData .reply-wrap .name {
+    padding: 8px 2px
+}
+
+.activityData .name {
+  margin-left: 5px;
+  position: absolute;
+  font-weight: bold;
+}
+
+.activityData .reply {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  background: rgba(var(--color-foreground));
+  -webkit-border-radius: 10px;
+          border-radius: 10px;
+  padding: 14px;
+  position: relative;
+  font-size: 1.3rem
+}
+
+.activityData {
+  min-width: 100%;
+  padding: 20px 25px 10px;
+  margin-bottom: 15px;
+  -webkit-border-radius: 10px;
+          border-radius: 10px;
+  background: rgb(var(--color-background))
+}
+.activityInner {
+  text-align: -webkit-center;
+  margin-bottom:10px
+}
+
+.activityData img {
+  max-width: 100%;
+  margin-bottom:5px
+}
+
+.activityData blockquote {
+  background: rgb(var(--color-foreground))
+}
+
+.activityData .reply blockquote {
+  background: rgb(var(--color-background))
+}
+
+.activityDataImage {
+ background-size: cover;
+    background-repeat: no-repeat;
+    display: inline-block;
+    width: 45px;
+    -webkit-border-radius: 5px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    height: 45px
+}
+
+.activityDataUsername {
+    font-weight: 700;
+    left: 50px;
+    top: 7px;
+    position: relative;
+    width: 150px;
+    display: block;
+}
+
+.reply-wrap .activityDataImage {
+    width: 30px;
+    height: 30px
+}
+
+.reply-wrap .reply .header {
+   height:40px
+}
+
+.activityData .saveEmbed {
+    background: rgb(var(--color-foreground));
+    font-size: 12px;
+    color: rgb(var(--color-text));
+    -webkit-border-radius: 3px;
+            border-radius: 3px;
+    display: -ms-inline-grid;
+    display: inline-grid;
+    grid-auto-flow: column;
+    -ms-grid-columns: 50px;
+    grid-template-columns: 50px;
+    justify-items: center;
+}
+
+.activityData .reply-markdown .markdown{
+overflow:hidden!important
+}
+
+.activityData .reply-markdown .saveEmbed,
+.activityData blockquote span.markdown_spoiler_show,
+.activityData blockquote .saveEmbed{
+   background: rgb(var(--color-background))
+}
+
+#removereply:hover,
+#editreply:hover,
+.activityData .action:hover,
+.activityData .activityLink:hover{
+  color: rgb(var(--color-blue))!important;
+}
+
+.activityData .saveEmbed b {
+    display: -ms-grid;
+    display: grid;
+    word-break: break-word;
+    margin: 3px;
+    padding: 10px;
+    justify-items: center;
+    line-height:18px
+}
+
+.activityData .saveEmbed .cover {
+  background-repeat: no-repeat;
+  background-position: 50%;
+  background-size: cover;
+  height: 100%;
+  width: 100%;
+  -webkit-border-top-left-radius: 3px;
+          border-top-left-radius: 3px;
+  -webkit-border-bottom-left-radius: 3px;
+          border-bottom-left-radius: 3px;
+}
+
+.saveEmbedDetails {
+  font-size: 1rem;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  color: rgb(var(--color-text-light))!important;
+  pointer-events: none;
+}
+
+.activityData a,
+.activityData a.embedLink a.saveEmbed{
+  color: rgb(var(--color-blue));
+}
+.activityData a[href^="https://anilist.co/manga/"],
+.activityData a.embedLink[href^="https://anilist.co/manga/"] a.saveEmbed{
+  color: rgb(var(--color-green));
+}
+
+
+.activityDatauserdiv {
+  width: 100%;
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+}
+
+.activityLink {
+  padding-left: 15px;
+  height: 0;
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  color: rgba(var(--color-text))!important;
+}
+
+.saveActivity {
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          -webkit-align-items: center;
+          align-items: center;
+  display: -ms-grid;
+  display: grid;
+  grid-gap: 8px;
+  -ms-grid-columns: 20px 8px 1fr;
+  grid-template-columns: 20px 1fr;
+  padding: 2px 12px;
+  padding-right: 17px;
+}
+
+.mainbtn {
+  list-style: none;
+  cursor: pointer;
+  color: rgb(var(--color-text));
+}
+
+.mainbtns {
+  font: 900 1.3rem Overpass,-apple-system,BlinkMacSystemFont,"Segoe UI",Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
+  -webkit-transition: .25s;
+  -o-transition: .25s;
+  transition: .25s;
+  border: 0;
+  -webkit-border-radius: 4px;
+          border-radius: 4px;
+  padding: 4px;
+  margin: 4px;
+  text-align:center;
+  cursor: pointer;
+  background: rgb(var(--color-background));
+  color: rgb(var(--color-text));
+}
+
+.btn-active {
+  background: #28384d;
+  color: #9fadbd;
+}
+
+.mainbtns:active {
+  background: rgba(40,56,77);
+}
+
+.mainbtns:hover {
+  color: rgb(var(--color-blue));
+}
+
+.maindiv {
+  width: 100%;
+  -webkit-transition: 1s;
+  -o-transition: 1s;
+  transition: 1s;
+  position: relative;
+  background: rgb(var(--color-foreground));
+  overflow-y: auto;
+  display: -ms-grid;
+  display: grid;
+  color: rgb(var(--color-text));
+  padding: 10px;
+  padding-bottom: 0;
+  margin-right: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #6969694d;
+  -webkit-border-radius: 10px;
+          border-radius: 10px;
+}
+
+.expanded {
+  margin-top: 10px;
+}
+
+.expanded2 {
+    max-height: -webkit-calc(95vh - 100px) !important;
+    max-height: calc(95vh - 100px) !important
+}
+
+@media (max-width: 1200px) {
+  .expanded .activityDataDiv {
+  max-height: -webkit-calc(90vh - 65px) !important;
+  max-height: calc(90vh - 65px) !important
+  }
+}
+
+@media (max-width: 980px) {
+  .expanded .activityDataDiv {
+  max-height: -webkit-calc(90vh - 25px) !important;
+  max-height: calc(90vh - 25px) !important
+  }
+}
+
+@media (max-width: 480px) {
+  .expanded .activityDataDiv {
+  max-height: -webkit-calc(90vh - 35px) !important;
+  max-height: calc(90vh - 35px) !important
+  }
+}
+
+.ResultDivInside {
+  overflow-y: auto;
+  -webkit-border-radius: 10px;
+          border-radius: 10px;
+  padding: 10px;
+  padding-top: 20px;
+  padding-bottom: 0;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.activityDataDiv {
+  display: -ms-grid;
+  display: grid;
+  max-height: -webkit-calc(90vh - 100px);
+  max-height: calc(90vh - 100px);
+  overflow-y: auto;
+  padding-top: 10px;
+  margin-top: 3px;
+}
+
+@media (max-width: 1200px) {
+  .activityDataDiv {
+    max-height: -webkit-calc(90vh - 120px);
+    max-height: calc(90vh - 120px);
+  }
+}
+
+@media (max-width: 768px) {
+  .activityDataDiv {
+    max-height: -webkit-calc(90vh - 80px);
+    max-height: calc(90vh - 80px);
+  }
+}
+
+@media (max-width: 480px) {
+  .activityDataDiv {
+    max-height: -webkit-calc(90vh - 90px);
+    max-height: calc(90vh - 90px);
+  }
+}
+
+.activityDataDiv .loadMoreButton {
+    margin: 10px auto;
+    display: block;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 97%;
+    text-align: center;
+    -webkit-border-radius: 10px;
+            border-radius: 10px;
+    background: rgb(13 21 34)
+}
+
+.ResultDivInside,
+.activityDataDiv {
+  -webkit-mask-image: -webkit-gradient(linear,left top, left bottom,color-stop(0, transparent),color-stop(black),color-stop(black),to(transparent));
+  -webkit-mask-image: linear-gradient(to bottom,transparent 0,black var(--top-mask-size),black -webkit-calc(100% - var(--bottom-mask-size)),transparent 100%);
+          mask-image: -webkit-gradient(linear,left top, left bottom,color-stop(0, transparent),color-stop(black),color-stop(black),to(transparent));
+          mask-image: linear-gradient(to bottom,transparent 0,black var(--top-mask-size),black calc(100% - var(--bottom-mask-size)),transparent 100%);
+  --bottom-mask-size: 10px;
+  --top-mask-size: 10px;
+}
+
+#settingDiv {
+  top:5px;
+  padding-bottom: 5px;
+  padding-top: 5px;
+  margin-bottom:5px;
+  -ms-grid-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
+  display: -ms-grid;
+  display: grid
+}
+
+#settingDiv .settingsText {
+    grid-column: 1 / -1
+}
+
+button#removereply,
+button#expandbtn,
+button#settingsbtn,
+button#closedivbtn{
+  position: absolute;
+  right: 0;
+  top:4px;
+  background:transparent
+}
+
+button#settingsbtn {
+  right:20px
+}
+
+button#expandbtn {
+  right:40px
+}
+
+#importBtn{
+-moz-text-align-last:center;
+     text-align-last:center
+}
+
+.reply-wrap .replybutton {
+-webkit-box-align: center;
+-webkit-align-items: center;
+    -ms-flex-align: center;
+        align-items: center;
+    background: rgb(var(--color-blue));
+    -webkit-border-radius: 4px;
+            border-radius: 4px;
+    color: rgb(var(--color-text-bright));
+    cursor: pointer;
+    display: -webkit-inline-box;
+    display: -webkit-inline-flex;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    margin-left: 18px;
+    padding: 10px 15px;
+    -webkit-transition: .2s;
+    -o-transition: .2s;
+    transition: .2s;
+}
+
+.reply-wrap .replybutton .cancel {
+background: rgb(var(--color-foreground));
+    color: rgb(var(--color-text-lighter));
+}
+
+.reply-wrap textarea{width: 96%;border-width: 1px;font-size: 1.3rem;padding: 8px 15px;resize: none;min-height: 36px;-webkit-border-radius: 5px;border-radius: 5px;}
+#removereply,#editreply{visibility:hidden;-webkit-transition:0.5s;-o-transition:0.5s;transition:0.5s}
+.reply-wrap .header:hover #removereply,
+.reply-wrap .header:hover #editreply {
+    visibility: visible!important;
+}
+`;
+
+//Add CSS
+var styleSheet = document.createElement('style');
+styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
+
+//Simple Create Element Shorthand Function
+function create(e, t, n) {
+  if (!e) throw SyntaxError("'tag' not defined");
+  var r,
+    i,
+    f = document.createElement(e);
+  if (t)
+    for (r in t)
+      if ('style' === r) for (i in t.style) f.style[i] = t.style[i];
+      else t[r] && f.setAttribute(r, t[r]);
+  return n && (f.innerHTML = n), f;
+}
+
+//Create Element Function 2
+function create2(t, e, a, s, n) {
+  let i = document.createElement(t);
+  return (
+    Array.isArray(e)
+      ? (i.classList.add(...e), e.includes('newTab') && i.setAttribute('target', '_blank'))
+      : e && ('#' === e[0] ? (i.id = e.substring(1)) : (i.classList.add(e), 'newTab' === e && i.setAttribute('target', '_blank'))),
+    (a || 0 === a) && (i.innerText = a),
+    s && s.appendChild && s.appendChild(i),
+    n && (i.style.cssText = n),
+    i
+  );
+}
+
+//Set Element Function
+function set(t, e, n) {
+  if (!t) throw new SyntaxError("'tag' not defined");
+  var r,
+    i,
+    f = t;
+  if (e)
+    for (r in e)
+      if ('style' === r) for (i in e.style) f.style[i] = e.style[i];
+      else e[r] && f.setAttribute(r, e[r]);
+  return n && (f.innerHTML = n), f;
+}
+
+// Improved Element Functions
+const ElementPrototype = Element.prototype;
+const { hasOwn, setPrototypeOf, isFrozen, getPrototypeOf, getOwnPropertyDescriptor } = Object;
+const cloneNode = lookupGetter(ElementPrototype, 'cloneNode');
+
+function lookupGetter(obj, prop) {
+  while (obj !== null) {
+    const descriptor = getOwnPropertyDescriptor(obj, prop);
+    if (descriptor) {
+      if (descriptor.get) return unapply(descriptor.get);
+      if (typeof descriptor.value === 'function') return unapply(descriptor.value);
+    }
+    obj = getPrototypeOf(obj);
+  }
+  return (fallbackArg) => {
+    console.warn('Fallback value for', fallbackArg);
+    return null;
+  };
+}
+
+function hasOwnPropertyCompat(obj, prop) {
+  return hasOwn ? hasOwn(obj, prop) : Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+function unapply(fn) {
+  return function (context, ...args) {
+    return fn.apply(context, args);
+  };
+}
+
+// Delay Function
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Time Function for Activities
+function nativeTimeElement(timestamp) {
+  const date = new Date(timestamp * 1000);
+  const timeElement = create2('time', 'activitytime');
+
+  timeElement.setAttribute('datetime', date.toISOString());
+  timeElement.title = date.toLocaleString();
+
+  const updateTimeText = () => {
+    const now = Math.round(Date.now() / 1000);
+    let elapsed = now - Math.round(date.getTime() / 1000);
+
+    if (elapsed === 0) {
+      timeElement.innerText = 'Now';
+    } else if (elapsed === 1) {
+      timeElement.innerText = '1 second ago';
+    } else if (elapsed < 60) {
+      timeElement.innerText = `${elapsed} seconds ago`;
+    } else if ((elapsed = Math.floor(elapsed / 60)) === 1) {
+      timeElement.innerText = '1 minute ago';
+    } else if (elapsed < 60) {
+      timeElement.innerText = `${elapsed} minutes ago`;
+    } else if ((elapsed = Math.floor(elapsed / 60)) === 1) {
+      timeElement.innerText = '1 hour ago';
+    } else if (elapsed < 24) {
+      timeElement.innerText = `${elapsed} hours ago`;
+    } else if ((elapsed = Math.floor(elapsed / 24)) === 1) {
+      timeElement.innerText = '1 day ago';
+    } else if (elapsed < 7) {
+      timeElement.innerText = `${elapsed} days ago`;
+    } else if (elapsed < 14) {
+      timeElement.innerText = '1 week ago';
+    } else if (elapsed < 30) {
+      timeElement.innerText = `${Math.floor(elapsed / 7)} weeks ago`;
+    } else if (elapsed < 365) {
+      const months = Math.floor(elapsed / 30);
+      timeElement.innerText = months === 1 ? '1 month ago' : `${months} months ago`;
+    } else {
+      const years = Math.floor(elapsed / 365);
+      timeElement.innerText = years === 1 ? '1 year ago' : `${years} years ago`;
+    }
+
+    // Schedule next update
+    setTimeout(() => {
+      if (document.body.contains(timeElement)) updateTimeText();
+    }, 20000);
+  };
+
+  updateTimeText();
+  return timeElement;
+}
 
 //Showdown Youtube Extension 1.2.1
 //https://github.com/showdownjs/youtube-extension
@@ -36,7 +690,7 @@
       {
         type: 'output',
         filter: function (e, s, n) {
-          var l = '<iframe src="%1" width="%2" height="%3" frameborder="0" allowfullscreen></iframe>';
+          var l = '<span class="youtube"><iframe src="%1" width="%2" height="%3" frameborder="0" allowfullscreen></iframe></span>';
           return (
             n.smoothLivePreview &&
               (l = n.youtubeUseSimpleImg
@@ -82,19 +736,31 @@ showdown.setOption('omitExtraWLInCodeBlocks', true);
 showdown.setOption('ghMentionsLink', 'https://anilist.co/user/{u}/');
 showdown.setOption('youtubeHeight', '300px');
 showdown.setOption('youtubeWidth', '300px');
+showdown.setOption('openLinksInNewWindow', true);
 const converter = new showdown.Converter({ extensions: ['youtube'] });
 
 //make HTML
 let makeHtml = function (e) {
-  let t = (e = e.replace('----', '---')).split('~~~'),
-    r = /img(\d+%?)?\(http.+?\)/gi;
+  let htmlPreserveRegex = /<\/?(h[1-6]|a|p|div|span|b|i|u|center|blockquote|h5|h4)[^>]*>/gi;
+  let preservedHtml = [];
+  e = e.replace(htmlPreserveRegex, (match) => {
+    preservedHtml.push(match);
+    return `oWoHTML${preservedHtml.length - 1}oWo`;
+  });
+  let t = (e = e.replace('----', '---')).split('~~~');
+  let r = /img(\d+%?)?\(http.+?\)/gi;
   t = t.map((e) => {
     let t = e.match(r);
     return (
       t &&
         t.forEach((t) => {
           let r = t.match(/^img(\d+%?)?\((http.+?)\)$/i);
-          e = e.replace(t, `<img width="${r[1] || ''}" src="${r[2]}">`);
+          if (r) {
+            e = e.replace(
+              t,
+              `<img width="${r[1] || ''}" src="${r[2]}">`
+            );
+          }
         }),
       e
     );
@@ -106,100 +772,450 @@ let makeHtml = function (e) {
       t &&
         t.forEach((t) => {
           let r = t.match(/^webm\((http.+?)\)$/i);
-          e = e.replace(t, `<video src="${r[1]}" controls="true" muted=""></video>`);
+          if (r) {
+            e = e.replace(
+              t,
+              `<video src="${r[1]}" controls="true" muted=""></video>`
+            );
+          }
         }),
       e
     );
   });
-  let c = /youtube\(.+?\)/gi,
-    l = [
-      (t = t.map((e) => {
-        let t = e.match(c);
-        return (
-          t &&
-            t.forEach((t) => {
-              let r = t.match(/^youtube\((.+?)\)$/i);
-              e = e.replace(t, `<a href="${r[1]}">${r[1]}</a>`);
-            }),
-          e
-        );
-      }))[0],
-    ],
-    m = !1;
-  for (let n = 1; n < t.length; n++) m ? l.push('</center>') : l.push('<center>'), l.push(t[n]), (m = !m);
-  return (l = l.map((e) => (/~!/.test(e) || /!~/.test(e) ? e.replace(/~!/g, '<span class="markdown_spoiler">').replace(/!~/g, '</span>') : e))), converter.makeHtml(l.join(''));
+  let c = /youtube\(.+?\)/gi;
+  t = t.map((e) => {
+    let t = e.match(c);
+    return (
+      t &&
+        t.forEach((t) => {
+          let r = t.match(/^youtube\((.+?)\)$/i);
+          if (r) {
+            e = e.replace(t, `<a href="${r[1]}">${r[1]}</a>`);
+          }
+        }),
+      e
+    );
+  });
+  let l = [t[0]];
+  let m = false;
+  for (let n = 1; n < t.length; n++) {
+    l.push(m ? '</center>' : '<center>');
+    l.push(t[n]);
+    m = !m;
+  }
+  l = l.map((e) =>
+    /~!/.test(e) || /!~/.test(e)
+      ? e
+          .replace(/~!/g, '<span class="markdown_spoiler">')
+          .replace(/!~/g, '</span>')
+      : e
+  );
+  e = l.join('');
+  e = e.replace(/oWoHTML(\d+)oWo/g, (match, index) => preservedHtml[index]);
+  return converter.makeHtml(e);
 };
 
-//Anilist - AuthAPIQuery
-let APIlimit = 90,
-  APIcallsUsed = 0,
-  APIcallsUsed_shortTerm = 0,
-  pending = {},
-  APIcounter = setInterval(function () {
-    APIcallsUsed = 0;
-  }, 6e4),
-  APIcounter2 = setInterval(function () {
-    APIcallsUsed_shortTerm = 0;
-  }, 1e4),
-  handleResponse = function (e) {
-    APIcallsUsed = (APIlimit = e.headers.get('x-ratelimit-limit')) - e.headers.get('x-ratelimit-remaining');
-    try {
-      return e.json().then(function (t) {
-        return e.ok ? t : Promise.reject(t);
-      });
-    } catch (t) {
-      throw (console.warn(t, e), t);
-    }
-  };
-function authAPIcall(e, t, r, a, n, i, s, l) {
-  if (!accessToken) return;
-  if (APIcallsUsed_shortTerm > 18 || APIcallsUsed > APIlimit - 2) {
-    setTimeout(function () {
-      authAPIcall(e, t, r, a, n, i, s, l);
-    }, 2e3);
-    return;
-  }
-  if (
-    ('object' == typeof e &&
-      ((t = e.variables), (r = e.callback), (a = e.cacheKey), (n = e.timeFresh), (i = e.useLocalStorage), (s = e.overWrite), (l = e.oldCallback), (e = e.query)),
-    a)
-  ) {
-    let o = JSON.parse(i ? localStorage.getItem(a) : sessionStorage.getItem(a));
-    if (o) {
-      if ((!o.duration || NOW() < o.time + o.duration) && !s) {
-        r(o.data, t);
-        return;
+//Get embed Ids
+async function getEmbedIds() {
+  var activityEmbedded = false;
+  let embeds = document.querySelectorAll('.embedLink');
+  let idArray = [];
+  let embedArray = [];
+  for (let i = 0; i < embeds.length; i++) {
+    let activity = embeds[i];
+    if (!hasOwn(activity, 'activityEmbedded')) {
+      activity.activityEmbedded = true;
+      var id = activity.href.split('/')[4];
+      if (id !== undefined) {
+        idArray.push(id);
+        embedArray.push(activity);
       }
-      l && l(o.data, t), i ? localStorage.removeItem(a) : sessionStorage.removeItem(a);
     }
   }
-  let c = function (e, s) {
-      if ((r(e, t, s), a)) {
-        let l = JSON.stringify({ data: e, time: NOW(), duration: n });
-        i ? localStorage.setItem(a, l) : sessionStorage.setItem(a, l);
-      }
-    },
-    u = {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: e, variables: t }),
-    },
-    m = function (t) {
-      if ((console.error(t), t.errors && t.errors.some((e) => 'Invalid token' === e.message))) {
-        let loginLink = create(
-          'a',
-          { class: 'mainbtns', id: 'signIn', href: 'https://anilist.co/api/v2/oauth/authorize?client_id=12455&response_type=token' },
-          '<b>Error: Expired Token. Click here to renew token.</b>',
-        );
-        listDiv2.insertBefore(loginLink, listDiv2.children[1]);
-        (accessToken = ''), localStorage.setItem('savetkn', accessToken);
-        return;
-      }
-      e.includes('mutation') ? r(t.errors) : c(null, t);
-    };
-  fetch('https://graphql.anilist.co', u).then(handleResponse).then(c).catch(m), APIcallsUsed++, APIcallsUsed_shortTerm++;
+  if (idArray.length > 0) {
+    await getEmbeds(idArray,embedArray);
+    await delay(1000);
+  }
 }
 
+//Get Embeds
+async function getEmbeds(embedIds, activityContainer) {
+  const query = `
+    query media($ids: [Int!], $page: Int = 1) {
+      Page(page: $page) {
+        pageInfo {
+          hasNextPage
+        }
+        media(id_in: $ids, isAdult: false) {
+          id
+          title {
+            userPreferred
+          }
+          coverImage {
+            large
+          }
+          siteUrl
+          type
+          format
+          status(version: 2)
+          averageScore
+          popularity
+          genres
+          season
+          seasonYear
+          bannerImage
+          startDate {
+            year
+          }
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    ids: embedIds,
+    page: 1,
+  };
+
+  try {
+    const data = await alQuery(query, variables);
+    handleData(data);
+  } catch (error) {
+    console.error("Error fetching anime data:", error);
+  }
+
+  function handleData(data) {
+    const mediaList = data.data.Page.media;
+    mediaList.sort((a, b) => {
+      const indexA = embedIds.indexOf(String(a.id));
+      const indexB = embedIds.indexOf(String(b.id));
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+    mediaList.forEach((media,index) => {
+      let activitySave = create(
+        'a',
+        {
+          class: 'saveEmbed',
+        },
+        `<b>${media.title.userPreferred}</b>`
+      );
+
+      let embedImg = create('a', {
+        class: 'cover',
+        style: {
+          backgroundImage: `url(${media.coverImage.large})`,
+        },
+      });
+
+      activityContainer[index].append(activitySave);
+      activitySave.href = media.siteUrl || "#";
+
+      activitySave.insertBefore(embedImg, activitySave.children[0]);
+
+      const avg = media.averageScore !== null ? ` · ${media.averageScore}%` : '';
+      const season = media.season !== null ? ` · ${media.season} ${media.seasonYear}`: '';
+
+      let activitySaveDetails = create('a', {class: 'saveEmbedDetails',});
+      if (media.type === 'MANGA') {
+        activitySaveDetails.innerHTML = `<b>${media.format} · ${media.status} · ${media.startDate.year}${avg}</b>`;
+      } else if (media.format === 'MUSIC') {
+        activitySaveDetails.innerHTML = `<b>${media.format} · ${media.endDate?.year || ''}${avg}</b>`;
+      } else {
+        activitySaveDetails.innerHTML = `<b>${media.format}${season} · ${media.status}${avg}</b>`;
+      }
+
+      embedImg.nextSibling?.append(activitySaveDetails);
+
+      // Fix underscores in text
+      let fixedText = activitySaveDetails.text.replace(/_/g, ' ');
+      activitySaveDetails.text = fixedText;
+    });
+  }
+}
+
+//Fix spoilers
+async function getSpoilers() {
+    var actspoiled = false;
+    let actspoiler = document.querySelectorAll('.activityData span.markdown_spoiler');
+    actspoiler.forEach(function (spoilers) {
+      if (!hasOwn(spoilers, 'actspoiled')) {
+        spoilers.actspoiled = true;
+        let contspoiler = create('span', {
+          class: 'markdown_spoiler_cont',
+        });
+        let showspoiler = create('span', {
+          class: 'markdown_spoiler_show',
+        });
+        showspoiler.innerHTML = 'Spoiler, click to view';
+        contspoiler.innerHTML = spoilers.innerHTML;
+        contspoiler.style.display = 'none';
+        spoilers.innerHTML = '';
+        spoilers.insertBefore(showspoiler, spoilers.children[0]);
+        spoilers.append(contspoiler);
+        showspoiler.onclick = function () {
+          if (contspoiler.style.display === 'none') {
+            showspoiler.innerHTML = 'Hide';
+            contspoiler.style.display = 'block';
+          } else {
+            showspoiler.innerHTML = 'Spoiler, click to view';
+            contspoiler.style.display = 'none';
+          }
+        };
+      }
+    });
+  }
+
+async function processMarkdown(inputText) {
+  const httpRegex = /https?:\/\/[^\s]+(?=\s|$)/g;
+    const links = [];
+  const tempText = inputText.replace(httpRegex, (match) => {
+    links.push(match);
+    return `oWoLINKTEMP${links.length - 1}oWo`;
+  });
+    const processedText = tempText
+    .replace(/(?<=[^*]|^)\*\*\*([^*].*?[^*]*)\*\*\*/gm, '<strong><em>' + '$1' + '</em></strong>')
+    .replace(/(?<=[^*]|^)\*\*([^*].*?[^*]*)\*\*/gm, '<strong>' + '$1' + '</strong>')
+    .replace(/(?<=[^*]|^)\*([^*].*?[^*]*)\*/gm, '<em>' + '$1' + '</em>')
+    .replace(/(?<=[^_]|^)_{3,}([^_].*?[^\n]*)/g, '<hr>' + '$1')
+    .replace(/(?<=[^_]|^)__([^_].*?[^_]*)__/gm, '<strong>' + '$1' + '</strong>')
+    .replace(/(?<=[^_]|^)_([^_].*?[^_]*)_/gm, '<i>' + '$1' + '</i>')
+    .replace(/^(?<=[^#]|^)#####([^#\n].*?[^\n]*)/gm, '<h5>' + '$1' + '</h5>')
+    .replace(/^(?<=[^#]|^)####([^#\n].*?[^\n]*)/gm, '<h4>' + '$1' + '</h4>')
+    .replace(/^(?<=[^#]|^)###([^#\n].*?[^\n]*)/gm, '<h3>' + '$1' + '</h3>')
+    .replace(/^(?<=[^#]|^)##([^#\n].*?[^\n]*)/gm, '<h2>' + '$1' + '</h2>')
+    .replace(/^(?<=[^#]|^)#([^#\n].*?[^\n]*)/gm, '<h1>' + '$1' + '</h1>')
+    .replace(/(?<=[^`]|^)\`([^`].*?[^`]*)\`/gm, '<code>' + '$1' + '</code>');
+
+    const finalText = processedText.replace(/oWoLINKTEMP(\d+)oWo/g, (_, index) => links[index])
+    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">' + '$1' + '</a>')
+    .replace(/\[(.+?)\]\(\)/g, '<a>' + '$1' + '</a>')
+    .replace(/(?<=[^~]|^)\~\~([^~].*?[^~]*)\~\~/gm, '<del>' + '$1' + '</del>')
+    .replace(/youtube\(+((?!https:).*).*\)/gim, ' youtube(https://www.youtube.com/watch?v=$1)')
+    .replace(/youtube.(h).((.*?)\))/gi, ' ![](ht$2')
+    .replace(/(?<!\(|"|=)\b((https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+)).([^\W]+.*?\/|[^\s\~\_]+)/gm,'<a class="embedLink" target= "_blank" href="$1/"></a>')
+    .replace(/^(?!>|#)\n/gm, '\n\n');
+    return finalText;
+}
+
+
+// Optimize HTML Saved Activity
+async function actHTMLFix(text) {
+  let actFixedText = '';
+  const actTextToFix = await processMarkdown(text);
+  const sanitizedText = DOMPurify.sanitize(actTextToFix);
+  actFixedText = await makeHtml(actTextToFix);
+  actFixedText = actFixedText
+    .replace(/\n/gm, '<br>')
+    .replace(/(\<br\>\s*){2,99}/gm, '<br>')
+    .replace(/\<br \/\>/gm,'')
+    .replace(/<\/p><br>/gm, '</p>\n')
+    .replace(/<br><p>/gm, '<p>\n')
+    .replace(/<blockquote><br>/, '<blockquote>');
+  return actFixedText;
+}
+
+//Anilist Query
+const requestQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+  if (isProcessing || requestQueue.length === 0) {
+    return;
+  }
+
+  isProcessing = true;
+
+  while (requestQueue.length > 0) {
+    const { query, variables, options, resolve, reject } = requestQueue.shift();
+
+    try {
+      const result = await alQueryInternal(query, variables, options);
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    }
+
+    // Delay between requests
+    await delay(1000);
+  }
+
+  isProcessing = false;
+}
+
+async function alQueryInternal(query, variables, options = {}) {
+  const maxRetries = 3;
+
+  const fetchOptions = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...options.headers, // Merge any additional headers
+    },
+    body: JSON.stringify({ query, variables }),
+  };
+
+  for (let i = 0; i < maxRetries; i++) {
+    const response = await fetch("https://graphql.anilist.co", fetchOptions);
+
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("Retry-After");
+      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 60000; // More reasonable default
+      console.warn(
+        `Rate limit exceeded. Retrying after ${waitTime / 1000} seconds.`
+      );
+      await delay(waitTime);
+      continue;
+    } else if (!response.ok) {
+      if (response.status === 404 ) {
+        await removeActivity(variables.id);
+        await removeActivity(variables.id,'likeHistory');
+      } else {
+        throw new Error(
+          `Error: ${response.status} ${response.statusText} (query: ${query}, variables: ${JSON.stringify(
+            variables
+          )})`
+        );
+      }
+    } else {
+      return response.json();
+    }
+  }
+}
+
+function alQuery(query, variables, options = {}) {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ query, variables, options, resolve, reject });
+    processQueue();
+  });
+}
+
+
+// Anilist - AuthAPIQuery
+let API_LIMIT = 90;
+let apiCallsUsed = 0;
+let apiCallsUsedShortTerm = 0;
+const pending = {};
+
+// Reset API call counters periodically
+const resetApiCalls = () => (apiCallsUsed = 0);
+const resetApiCallsShortTerm = () => (apiCallsUsedShortTerm = 0);
+setInterval(resetApiCalls, 60000); // Reset every 60 seconds
+setInterval(resetApiCallsShortTerm, 10000); // Reset every 10 seconds
+
+// Handle API response
+const handleResponse = async (response) => {
+  apiCallsUsed = (API_LIMIT = response.headers.get("x-ratelimit-limit")) - response.headers.get("x-ratelimit-remaining");
+  try {
+    const data = await response.json();
+    return response.ok ? data : Promise.reject(data);
+  } catch (error) {
+    console.warn("Error parsing response: ", error, response);
+    throw error;
+  }
+};
+
+// Perform authenticated API call
+function authAPIcall(query, variables, callback, cacheKey, timeFresh, useLocalStorage, overwriteCache, oldCallback) {
+  if (!accessToken) return;
+
+  // Check rate limits
+  if (apiCallsUsedShortTerm > 18 || apiCallsUsed > API_LIMIT - 2) {
+    setTimeout(() => {
+      authAPIcall(query, variables, callback, cacheKey, timeFresh, useLocalStorage, overwriteCache, oldCallback);
+    }, 2000);
+    return;
+  }
+
+  // Cache handling
+  if (cacheKey) {
+    const storage = useLocalStorage ? localStorage : sessionStorage;
+    const cachedData = JSON.parse(storage.getItem(cacheKey));
+
+    if (cachedData) {
+      const isFresh = !cachedData.duration || NOW() < cachedData.time + cachedData.duration;
+      if (isFresh && !overwriteCache) {
+        callback(cachedData.data, variables);
+        return;
+      }
+
+      if (oldCallback) oldCallback(cachedData.data, variables);
+      storage.removeItem(cacheKey);
+    }
+  }
+
+  // Success handler
+  const handleSuccess = (data, error = null) => {
+    callback(data, variables, error);
+    if (cacheKey) {
+      const storage = useLocalStorage ? localStorage : sessionStorage;
+      const cachedEntry = JSON.stringify({ data, time: NOW(), duration: timeFresh });
+      storage.setItem(cacheKey, cachedEntry);
+    }
+  };
+
+  // Request setup
+  const requestConfig = {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ query, variables }),
+  };
+
+  // Error handler
+  const handleError = (errorResponse) => {
+    if (errorResponse.status === 429) {
+      // API rate limit exceeded, retry after specified time
+      const retryAfter = errorResponse.headers.get("Retry-After");
+      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 60000; // Default to 60 seconds
+      console.warn(`Rate limit exceeded. Retrying after ${waitTime / 1000} seconds.`);
+      setTimeout(() => {
+        authAPIcall(query, variables, callback, cacheKey, timeFresh, useLocalStorage, overwriteCache, oldCallback);
+      }, waitTime);
+      return;
+    }
+
+    console.error("Error: ", errorResponse);
+
+    // Handle expired token
+    if (errorResponse.errors?.some((err) => err.message === "Invalid token")) {
+      const loginLink = create(
+        "a",
+        {
+          class: "mainbtns",
+          id: "signIn",
+          href: "https://anilist.co/api/v2/oauth/authorize?client_id=12455&response_type=token",
+        },
+        "<b>Error: Expired Token. Click here to renew token.</b>"
+      );
+      listDiv2.insertBefore(loginLink, listDiv2.children[1]);
+      accessToken = "";
+      localStorage.setItem("savetkn", accessToken);
+      return;
+    }
+
+    if (query.includes("mutation")) {
+      callback(errorResponse.errors);
+    } else {
+      handleSuccess(null, errorResponse);
+    }
+  };
+
+  // Execute fetch request
+  fetch("https://graphql.anilist.co", requestConfig)
+    .then(handleResponse)
+    .then((data) => handleSuccess(data))
+    .catch(handleError);
+
+  // Update API call counters
+  apiCallsUsed++;
+  apiCallsUsedShortTerm++;
+}
 //SVG
 const svgns = 'http://www.w3.org/2000/svg',
   svgShape = function (e, t, a, c, r) {
@@ -464,609 +1480,7 @@ const svgns = 'http://www.w3.org/2000/svg',
   svg[e.name] = svgShape(e.shape.element, !1, e.shape.attributes, e.shape.children, e.shape.content);
 });
 
-//Element Functions
-var ElementPrototype = Element.prototype,
-  hasOwnProperty = Object.hasOwnProperty,
-  setPrototypeOf = Object.setPrototypeOf,
-  isFrozen = Object.isFrozen,
-  getPrototypeOf = Object.getPrototypeOf,
-  getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor,
-  cloneNode = lookupGetter(ElementPrototype, 'cloneNode');
-function lookupGetter(e, t) {
-  for (; null !== e; ) {
-    var a = getOwnPropertyDescriptor(e, t);
-    if (a) {
-      if (a.get) return unapply(a.get);
-      if ('function' == typeof a.value) return unapply(a.value);
-    }
-    e = getPrototypeOf(e);
-  }
-  return function (e) {
-    return console.warn('fallback value for', e), null;
-  };
-}
-function hasOwn(e, t) {
-  return Object.hasOwn ? Object.hasOwn(e, t) : Object.prototype.hasOwnProperty.call(e, t);
-}
-function unapply(e) {
-  return function (t) {
-    for (var a = arguments.length, c = new Array(a > 1 ? a - 1 : 0), r = 1; r < a; r++) c[r - 1] = arguments[r];
-    return apply(e, t, c);
-  };
-}
-
-//Delay Function
-const delay = (delayInms) => {
-  return new Promise((resolve) => setTimeout(resolve, delayInms));
-};
-
-//Time Function for Activities
-function nativeTimeElement(e) {
-  let n = new Date(1e3 * e),
-    o = create2('time', 'activitytime');
-  o.setAttribute('datetime', n), (o.title = n.toLocaleString(void 0));
-  let t = function () {
-    let e = Math.round(new Date().valueOf() / 1e3) - Math.round(n.valueOf() / 1e3);
-    0 === e && (o.innerText = 'Now'),
-      1 === e
-        ? (o.innerText = '1 second ago')
-        : e < 60
-          ? (o.innerText = e + ' seconds ago')
-          : 1 === (e = Math.floor(e / 60))
-            ? (o.innerText = '1 minute ago')
-            : e < 60
-              ? (o.innerText = e + ' minutes ago')
-              : 1 === (e = Math.floor(e / 60))
-                ? (o.innerText = '1 hour ago')
-                : e < 24
-                  ? (o.innerText = e + ' hours ago')
-                  : 1 === (e = Math.floor(e / 24))
-                    ? (o.innerText = '1 day ago')
-                    : e < 7
-                      ? (o.innerText = e + ' days ago')
-                      : e < 14
-                        ? (o.innerText = '1 week ago')
-                        : e < 30
-                          ? (o.innerText = Math.floor(e / 7) + ' weeks ago')
-                          : e < 365
-                            ? 1 === Math.floor(e / 30)
-                              ? (o.innerText = '1 month ago')
-                              : (o.innerText = Math.floor(e / 30) + ' months ago')
-                            : 1 === (e = Math.floor(e / 365))
-                              ? (o.innerText = '1 year ago')
-                              : (o.innerText = e + 'years ago'),
-      setTimeout(function () {
-        document.body.contains(o) && t();
-      }, 2e4);
-  };
-  return t(), o;
-}
-
-//Create Element Function
-function create(e, t, n) {
-  if (!e) throw new SyntaxError("'tag' not defined");
-  var r,
-    i,
-    f = document.createElement(e);
-  if (t)
-    for (r in t)
-      if ('style' === r) for (i in t.style) f.style[i] = t.style[i];
-      else t[r] && f.setAttribute(r, t[r]);
-  return n && (f.innerHTML = n), f;
-}
-//Create Element Function 2
-function create2(t, e, a, s, n) {
-  let i = document.createElement(t);
-  return (
-    Array.isArray(e)
-      ? (i.classList.add(...e), e.includes('newTab') && i.setAttribute('target', '_blank'))
-      : e && ('#' === e[0] ? (i.id = e.substring(1)) : (i.classList.add(e), 'newTab' === e && i.setAttribute('target', '_blank'))),
-    (a || 0 === a) && (i.innerText = a),
-    s && s.appendChild && s.appendChild(i),
-    n && (i.style.cssText = n),
-    i
-  );
-}
-
-//Set Element Function
-function set(t, e, n) {
-  if (!t) throw new SyntaxError("'tag' not defined");
-  var r,
-    i,
-    f = t;
-  if (e)
-    for (r in e)
-      if ('style' === r) for (i in e.style) f.style[i] = e.style[i];
-      else e[r] && f.setAttribute(r, e[r]);
-  return n && (f.innerHTML = n), f;
-}
-
-//CSS
-var styles = `
-.activitydata span.markdown_spoiler {
-    display:block;
-    margin:10px
-}
-
-.activitydata span.markdown_spoiler_cont {
-    margin-top:10px
-}
-
-.activitydata span.markdown_spoiler_show {
-    cursor: pointer;
-    padding: 5px;
-    padding-top: 3px;
-    font-weight: 700;
-    padding-bottom: 3px;
-    background: rgb(var(--color-foreground));
-    font-size:12px;
-    color: rgb(var(--color-blue));
-    -webkit-border-radius: 5px;
-            border-radius: 5px
-}
-
-.activitydata .button.liked {
-  color: rgb(var(--color-red));
-}
-
-.activitydata .activitylinksdiv {
-  color: rgb(var(--color-blue-dim));
-  position: relative;
-  left: -webkit-calc(100% - 105px);
-  left: calc(100% - 105px);
-  display: -webkit-inline-box;
-  display: -ms-inline-flexbox;
-  display: -webkit-inline-flex;
-  display: inline-flex;
-  font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-  font-weight: 800;
-}
-
-.activitydata .actions {
-    color: rgb(var(--color-blue-dim));
-    position: relative;
-    left: -webkit-calc(100% - 85px);
-    left: calc(100% - 85px);
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: -ms-flexbox;
-    display: flex;
-    width: 95px;
-    font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-    font-weight: 800;
-    -webkit-box-pack: end;
-    -webkit-justify-content: flex-end;
-        -ms-flex-pack: end;
-            justify-content: flex-end;
-}
-
-.activitydata .action {
-  color: rgb(var(--color-blue-dim))!important;
-  cursor: pointer;
-  display: inline-block;
-  padding-left: 5px;
-  -webkit-transition: .2s;
-  -o-transition: .2s;
-  transition: .2s;
-}
-
-.activitydata .time {
-  font: 800 1.1rem Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-  color: rgb(var(--color-text-lighter));
-  position: relative;
-  right: 12px;
-  top: 12px;
-}
-
-.activitydata .acttime {
-  font: 800 1.1rem Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-  color: rgb(var(--color-text-lighter));
-  margin-top:3px
-}
-
-.activitydata .reply .actions {
-  font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-  font-weight: 700;
-  top: 12px;
-  position: absolute;
-  width:125px;
-  left: -webkit-calc(100% - 135px);
-  left: calc(100% - 135px);
-  -webkit-box-align: center;
-      -ms-flex-align: center;
-          -webkit-align-items: center;
-          align-items: center
-}
-
-.activitydata .reply .action {
-  padding-left: 5px;
-  -webkit-transition: .2s;
-  -o-transition: .2s;
-  transition: .2s;
-}
-
-.activitydata .reply  .action.likes {
-  padding-right: 10px;
-}
-
-.activitydata .reply .time {
-  color: rgb(var(--color-text-lighter));
-  display: contents!important;
-}
-
-.activitydata .reply {
-  background: rgb(var(--color-foreground));
-  -webkit-border-radius: 3px;
-          border-radius: 3px;
-  font-size: 1.3rem;
-  margin-top: 15px;
-  padding: 14px;
-  padding-bottom: 4px;
-  position: relative;
-}
-.activitydata .reply-markdown {
-  padding: 0px 2px
-}
-.activitydata .reply-wrap .name {
-    padding: 8px 2px
-}
-
-.activitydata .name {
-  margin-left: 5px;
-  position: absolute;
-  font-weight: bold;
-}
-
-.activitydata .reply {
-  margin-bottom: 10px;
-  background: rgba(var(--color-foreground));
-  -webkit-border-radius: 10px;
-          border-radius: 10px;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  padding-left: 10px;
-}
-
-.activitydata {
-  min-width: 100%;
-  padding: 20px 25px 10px;
-  margin-bottom: 15px;
-  -webkit-border-radius: 10px;
-          border-radius: 10px;
-  background: rgb(var(--color-background))
-}
-.activityinner {
-  text-align: -webkit-center;
-  margin-bottom:10px
-}
-
-.activitydata img {
-  max-width: 100%;
-  margin-bottom:5px
-}
-
-.activitydata blockquote {
-  background: rgb(var(--color-foreground));
-  border-left: solid 7px rgb(var(--color-text));
-  -webkit-border-radius: 3px;
-          border-radius: 3px;
-  display: inline-block;
-  font-style: italic;
-  margin-left: 10px;
-  padding: 10px 14px;
-}
-
-.activitydata iframe,
-.activitydata video {
-    -webkit-border-radius: 3px;
-            border-radius: 3px;
-    height: 200px;
-    max-width: 500px;
-    width: 100%;
-    margin-bottom: 5px;
-    display: block;
-}
-
-.activitydataimg {
- background-size: cover;
-    background-repeat: no-repeat;
-    display: inline-block;
-    width: 45px;
-    -webkit-border-radius: 5px;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    height: 45px
-}
-
-.activitydatausername {
-    font-weight: 700;
-    left: 50px;
-    top: 7px;
-    position: relative;
-    width: 150px;
-    display: block;
-}
-
-.reply-wrap .activitydataimg {
-    width: 30px;
-    height: 30px
-}
-.reply-wrap .reply .header {
-   height:40px
-}
-.activitydata .saveembed {
-    background: rgb(var(--color-foreground));
-    font-size: 12px;
-    color: rgb(var(--color-text));
-    -webkit-border-radius: 3px;
-            border-radius: 3px;
-    display: -ms-inline-grid;
-    display: inline-grid;
-    grid-auto-flow: column;
-    -ms-grid-columns: 50px;
-    grid-template-columns: 50px;
-    justify-items: center;
-}
-.activitydata .reply-markdown .markdown{
-overflow:hidden!important
-}
-.activitydata .reply-markdown .saveembed,
-.activitydata blockquote span.markdown_spoiler_show,
-.activitydata blockquote .saveembed{
-   background: rgb(var(--color-background))
-}
-#removereply:hover,
-#editreply:hover,
-.activitydata .action:hover,
-.activitydata .activitylink:hover{
-  color: rgb(var(--color-blue))!important;
-}
-
-.activitydata .saveembed b {
-    display: -ms-grid;
-    display: grid;
-    word-break: break-word;
-    margin: 3px;
-    padding: 10px;
-    justify-items: center;
-    line-height:18px
-}
-
-.activitydata .saveembed .cover {
-  background-repeat: no-repeat;
-  background-position: 50%;
-  background-size: cover;
-  height: 100%;
-  width: 100%;
-  -webkit-border-top-left-radius: 3px;
-          border-top-left-radius: 3px;
-  -webkit-border-bottom-left-radius: 3px;
-          border-bottom-left-radius: 3px;
-}
-
-.saveembedDetails {
-  font-size: 1rem;
-  display: -webkit-inline-box;
-  display: -ms-inline-flexbox;
-  display: -webkit-inline-flex;
-  display: inline-flex;
-  color: rgb(var(--color-text-light))!important;
-  pointer-events: none;
-}
-
-.activitydata p {
-  word-break: break-word;
-}
-
-.activitydata p:first-of-type {
-  margin: 0;
-}
-
-.activitydata a,
-.activitydata a.embedLink a.saveembed{
-  color: rgb(var(--color-blue));
-}
-.activitydata a[href^="https://anilist.co/manga/"],
-.activitydata a.embedLink[href^="https://anilist.co/manga/"] a.saveembed{
-  color: rgb(var(--color-green));
-}
-
-
-.activitydatauserdiv {
-  width: 100%;
-  display: -webkit-inline-box;
-  display: -ms-inline-flexbox;
-  display: -webkit-inline-flex;
-  display: inline-flex;
-}
-
-.activitylink {
-  padding-left: 15px;
-  height: 0;
-  display: inline-block;
-  position: relative;
-  cursor: pointer;
-  color: rgba(var(--color-text))!important;
-}
-
-.activitydata hr {
-  border: solid 1px rgba(40,56,77,.5);
-  -webkit-border-radius: 5px;
-          border-radius: 5px;
-  width: 100%;
-}
-
-.saveActivity {
-  -webkit-box-align: center;
-      -ms-flex-align: center;
-          -webkit-align-items: center;
-          align-items: center;
-  display: -ms-grid;
-  display: grid;
-  grid-gap: 8px;
-  -ms-grid-columns: 20px 8px 1fr;
-  grid-template-columns: 20px 1fr;
-  padding: 2px 12px;
-  padding-right: 17px;
-}
-
-.mainbtn {
-  list-style: none;
-  cursor: pointer;
-  color: rgb(var(--color-text));
-}
-
-.mainbtns {
-  font: 900 1.3rem Overpass,-apple-system,BlinkMacSystemFont,"Segoe UI",Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
-  -webkit-transition: .25s;
-  -o-transition: .25s;
-  transition: .25s;
-  border: 0;
-  -webkit-border-radius: 4px;
-          border-radius: 4px;
-  padding: 4px;
-  margin: 4px;
-  text-align:center;
-  cursor: pointer;
-  background: rgb(var(--color-background));
-  color: rgb(var(--color-text));
-}
-
-.btn-active {
-  background: #28384d;
-  color: #9fadbd;
-}
-
-.mainbtns:active {
-  background: rgba(40,56,77);
-}
-
-.mainbtns:hover {
-  color: rgb(var(--color-blue));
-}
-
-.maindiv {
-  width: 100%;
-  -webkit-transition: 1s;
-  -o-transition: 1s;
-  transition: 1s;
-  position: relative;
-  background: rgb(var(--color-foreground));
-  overflow-y: scroll;
-  display: -ms-grid;
-  display: grid;
-  color: rgb(var(--color-text));
-  padding: 10px;
-  padding-bottom: 0;
-  margin-right: 10px;
-  margin-bottom: 20px;
-  border: 1px solid #6969694d;
-  -webkit-border-radius: 10px;
-          border-radius: 10px;
-}
-
-.expanded {
-  margin-top: 10px;
-}
-
-.expanded2 {
-  max-height: 87vh!important;
-}
-
-.ResultDivInside {
-  overflow-y: scroll;
-  -webkit-border-radius: 10px;
-          border-radius: 10px;
-  padding: 10px;
-  padding-top: 20px;
-  padding-bottom: 0;
-  margin-top: 10px;
-  margin-bottom: 10px;
-}
-
-.activitydataDiv {
-  display: -ms-grid;
-  display: grid;
-  max-height: 330px;
-  overflow-y: scroll;
-  padding-top: 10px;
-  margin-top: 3px;
-}
-
-.ResultDivInside,
-.activitydataDiv {
-  -webkit-mask-image: -webkit-gradient(linear,left top, left bottom,color-stop(0, transparent),color-stop(black),color-stop(black),to(transparent));
-  -webkit-mask-image: linear-gradient(to bottom,transparent 0,black var(--top-mask-size),black -webkit-calc(100% - var(--bottom-mask-size)),transparent 100%);
-          mask-image: -webkit-gradient(linear,left top, left bottom,color-stop(0, transparent),color-stop(black),color-stop(black),to(transparent));
-          mask-image: linear-gradient(to bottom,transparent 0,black var(--top-mask-size),black calc(100% - var(--bottom-mask-size)),transparent 100%);
-  --bottom-mask-size: 10px;
-  --top-mask-size: 10px;
-}
-#settingDiv {
-  top:5px;
-  padding-bottom: 5px;
-  padding-top: 5px;
-  margin-bottom:5px
-}
-button#removereply,
-button#expandbtn,
-button#settingsbtn,
-button#closedivbtn{
-  position: absolute;
-  right: 0;
-  top:4px;
-  background:transparent
-}
-button#settingsbtn {
-  right:20px
-}
-button#expandbtn {
-  right:40px
-}
-#importBtn{
--moz-text-align-last:center;
-     text-align-last:center
-}
-.reply-wrap .replybutton {
-align-items: center;
-    background: rgb(var(--color-blue));
-    border-radius: 4px;
-    color: rgb(var(--color-text-bright));
-    cursor: pointer;
-    display: inline-flex;
-    font-family: Overpass,-apple-system,BlinkMacSystemFont,Segoe UI,Oxygen,Ubuntu,Cantarell,Fira Sans,Droid Sans,Helvetica Neue,sans-serif;
-    font-size: 1.3rem;
-    font-weight: 900;
-    margin-left: 18px;
-    padding: 10px 15px;
-    transition: .2s;
-}
-.reply-wrap .replybutton .cancel{
-background: rgb(var(--color-foreground));
-    color: rgb(var(--color-text-lighter));
-}
-.reply-wrap textarea{width: 96%;border-width: 1px;font-size: 1.3rem;padding: 8px 15px;resize: none;min-height: 36px;border-radius: 5px;}
-#removereply,#editreply{visibility:hidden;transition:0.5s}
-.reply-wrap .header:hover #removereply,
-.reply-wrap .header:hover #editreply{
-    visibility: visible!important;
-}
-`;
-
-//Add CSS
-var styleSheet = document.createElement('style');
-styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);
-
-//localStorage requirement
-try {
-  localStorage.setItem('test', 'test');
-  localStorage.removeItem('test');
-} catch (e) {
-  alert('LocalStorage, required for saving settings, is not available.');
-}
-
-//get username
+//MAIN
 let auth;
 let user = '';
 let userid = 0;
@@ -1087,58 +1501,115 @@ else
 let username = String(user);
 let usernameurl = String('https://anilist.co/user/' + user + '/');
 var val = 0;
+let currentIndex = 0;
+const itemsPerLoad = 2;
 var active = false;
-var mainarray = [];
+var mainArray = [];
+var likeArray = [];
+let likeHistory = false;
 let onMainDiv = false;
 var autosave = false;
 var expanded = false;
 var settings = false;
+var autosaveLikes = false;
+var canRemoveActivity = true;
+var isLoading = false;
 var oldHref = document.location.href;
 interval = null;
-var accessToken = '';
+var button = create('li',{class: 'el-dropdown-menu__item mainbtn',id: 'Saved Activities',},'Saved Activities');
+var button2 = create('li',{class: 'el-dropdown-menu__item mainbtn',id: 'History',},'Like History');
+const loadMoreButton = create("a", {class: "loadMoreButton"}, "Load More");
 
-//Check LocalStorage for Token
-check();
-if (localStorage.getItem('savetkn')) {
-  let lztkn = LZString.decompressFromBase64(localStorage.getItem('savetkn'));
-  if (lztkn.length > 10) {
-    accessToken = JSON.parse(LZString.decompressFromBase64(localStorage.getItem('savetkn')));
-  } else {
-    localStorage.removeItem('savetkn');
+//Button onclicks
+loadMoreButton.addEventListener("click", async () => {
+  if(loadMoreButton.textContent === "Load More") {
+    loadMoreButton.textContent = "Loading...";
+    canRemoveActivity = false;
+    await loadActivities();
+    await delay(500);
+    loadMoreButton.textContent = "Load More";
+    canRemoveActivity = true;
   }
-}
-
-//Create Saved Activities Button
-var button = create(
-  'li',
-  {
-    class: 'el-dropdown-menu__item mainbtn',
-    id: 'Saved Activities',
-  },
-  'Saved Activities',
-);
+});
 button.onclick = () => {
-  getSavedDiv();
+  if (!isLoading) {
+    isLoading = true;
+    likeArray = [];
+    likeHistory = false;
+    currentIndex = 0;
+    getSavedDiv(button);
+  }
+};
+button2.onclick = async () => {
+  if (!isLoading) {
+    isLoading = true;
+    currentIndex = 0;
+    likeArray = await mainDB.getItem('likeHistory') || [];
+    likeHistory = true;
+    if(likeArray.length > 0) getSavedDiv(button2);
+  }
 };
 
-//Start
-start();
-function start() {
-  if (!/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname)) {
+var accessToken = '';
+// Check Token Function
+function checkToken() {
+  let currentURL = '';
+  const mainLoop = setInterval(() => {
+    if (document.URL !== currentURL) {
+      currentURL = document.URL;
+      // Check if the URL contains the access token
+      if (/^https:\/\/anilist\.co\/home#access_token/.test(currentURL)) {
+        const tokenList = location.hash.split('&').map(param => param.split('='));
+        accessToken = tokenList[0][1];
+        // Save the token to local storage
+        localStorage.setItem('savetkn', LZString.compressToBase64(JSON.stringify(accessToken)));
+        // Redirect to the base URL to remove the access_token from the hash
+        location.replace(`${location.protocol}//${location.hostname}${location.pathname}`);
+      }
+    }
+  }, 200);
+}
+checkToken();
+
+// Check Local Storage for Token
+function loadTokenFromLocalStorage() {
+  const savedToken = localStorage.getItem('savetkn');
+  if (savedToken) {
+    const decompressedToken = LZString.decompressFromBase64(savedToken);
+    if (decompressedToken && decompressedToken.length > 10) {
+      accessToken = JSON.parse(decompressedToken);
+    } else {
+      localStorage.removeItem('savetkn');
+    }
+  }
+}
+loadTokenFromLocalStorage();
+
+//LocalForage DB
+ let mainDB = localforage.createInstance({ name: "Anilist-Activity-Saver", storeName: "main" });
+
+//Add Buttons to Filters
+function addToFilters() {
+  if (!/^\/home\/?([\w-]+)?\/?$/.test(location.pathname)) {
     return;
   }
-  let filters = document.querySelector('.el-dropdown-menu:not(.details *):not(.time *):not(.actions *)');
-  if (!filters) {
-    setTimeout(start, 100);
-    return;
-  }
-  if (filters.children[0].innerText.trim() === 'All') {
-    filters.appendChild(button);
-  } else {
-    setTimeout(start, 100);
-    return;
-  }
-  let autosaved = JSON.parse(localStorage.getItem('actautosave'));
+  const checkForFilters = () => {
+    const filters = document.querySelector('.el-dropdown-menu:not(.details *):not(.time *):not(.actions *)');
+
+    if (!filters) {
+      setTimeout(checkForFilters, 100);
+      return;
+    }
+
+    if (filters.children[0].innerText.trim() === 'All') {
+      filters.append(button, button2);
+      set(button, { class: 'el-dropdown-menu__item' });
+      set(button2, { class: 'el-dropdown-menu__item' });
+    }
+  };
+  checkForFilters();
+  const autosaved = JSON.parse(localStorage.getItem('actautosave'));
+  const autosaveEnabled = autosaved && accessToken.length > 5;
   if (autosaved && accessToken.length > 5) {
     autosave = true;
   } else {
@@ -1146,176 +1617,249 @@ function start() {
   }
   addSavetoActivities();
 }
+addToFilters();
 
-//Remove Activity
-function removeactivity(id) {
-  if (mainarray.length == 1) {
-    mainarray = [];
+//Build Activities
+let activitiesArray = '';
+async function buildActivity() {
+  let activityDataDiv = document.getElementById('activityDataDiv');
+  let savedActivities = await mainDB.getItem('savedActivities');
+  if(savedActivities) {
+    const filteredData = savedActivities.filter(item => item !== '');
+    mainDB.setItem('savedActivities', filteredData);
   }
-  let activitiesidarray = window.localStorage.getItem('savedactivites');
-  let x = activitiesidarray.split(/[.,!,?]/);
-  for (var i in x) {
-    if (x[i] == id) {
-      x.splice(i, 1);
-      break;
+  if (activityDataDiv) {
+    activityDataDiv.innerHTML = '';
+  }
+
+  if (autosave) {
+    await autoSaveActivity();
+    await buildActivities();
+  } else {
+    if (savedActivities !== null) {
+      activitiesArray = savedActivities;
+      await buildActivities();
     }
   }
-  mainarray = x;
-  localStorage.setItem('savedactivites', [x]);
-  if (autosave) {
-    autosaveact();
-    delay(1000).then(() => buildactivity());
-  } else {
-    buildactivity();
-  }
+  isLoading = false;
 }
 
-//Build Saved Activities
-function buildactivity() {
-  let activitydataDiv = document.getElementById('activitydataDiv');
-  let activitiesidarray = window.localStorage.getItem('savedactivites');
-  var x = '';
-  if (activitydataDiv) {
-    activitydataDiv.innerHTML = '';
+async function buildActivities() {
+  let mainActDiv = document.querySelector("#activityDataDiv");
+  const listLoading = create("div", {
+    class: "listLoading",
+    style: {
+      position: 'absolute',
+      fontSize: '16px',
+      MsGridColumnAlign: 'center',
+      justifySelf: 'center',
+      WebkitAlignSelf: 'center',
+      MsFlexItemAlign: 'center',
+      MsGridRowAlign: 'center',
+      alignSelf: 'center',
+    },
+  }, "Loading" + '<i class="fa fa-circle-o-notch fa-spin" style="top:2px; position:relative;margin-left:5px;font-family:FontAwesome"></i>');
+
+  mainActDiv.style.opacity = 0;
+  document.querySelector("#activityDataDiv").parentElement.append(listLoading);
+
+  // İlk 5 aktiviteyi yükle
+  await loadActivities();
+
+  mainActDiv.style.opacity = 1;
+  listLoading.remove();
+}
+
+//Load Activities
+async function loadActivities() {
+  const endIndex = currentIndex + itemsPerLoad;
+  let arr = likeArray.length > 0 ? likeArray : activitiesArray;
+  const currentBatch = arr.slice(currentIndex, endIndex);
+  for (let activityId of currentBatch) {
+    await delay(500);
+    await getActivity(activityId);
   }
-  if (autosave) {
-    const query = `query($userName: String) {User(name: $userName){about}}`;
-    var variables = {
-      userName: username,
-    };
-    var url = 'https://graphql.anilist.co',
-      options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          query: query,
-          variables: variables,
-        }),
-      };
-    function handleResponse(e) {
-      return e.json().then(function (n) {
-        return e.ok ? n : Promise.reject(n);
-      });
-    }
-    fetch(url, options).then(handleResponse).then(handleData);
-    function handleData(data) {
-      let actiddata = '';
-      actiddata = data.data.User.about;
-      let jsonMatch = actiddata.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
-      if (jsonMatch) {
-        let data2 = JSON.parse(LZString.decompressFromBase64(jsonMatch[1]));
-        var values = Object.keys(data2).map(function (key) {
-          return data2[key];
-        });
-        x = JSON.stringify(values)
-          .replace(/\\*"|\[|\]/g, '')
-          .split(/[.,!,?]/);
-        buildacts();
-        console.log(x);
-        if (x.length > 1) {
-          window.localStorage.setItem('savedactivites', x);
-        }
-      } else {
-        autosaveact();
-        return buildactivity();
-      }
-    }
+  currentIndex = endIndex;
+  if (currentIndex >= arr.length) {
+    loadMoreButton.remove();
   } else {
-    if (activitiesidarray !== null) {
-      x = activitiesidarray.split(/[.,!,?]/);
-      buildacts();
-    }
-  }
-  function buildacts() {
-    for (var i = 0; i < x.length; i++) {
-      if (x.length > 0) {
-        getlist(x[i]);
-      }
-    }
+    document.querySelector("#activityDataDiv").append(loadMoreButton);
   }
 }
 
 //AutoSave Function
-function autosaveact() {
+async function autoSaveActivity(opt) {
   if (autosave && accessToken.length > 5) {
-    let activitiesidarray = JSON.stringify(window.localStorage.getItem('savedactivites'));
-    let profileJson = {
-      activitiesidarray,
-    };
-    let auth = '';
-    const query = `
-	query($userName: String) {User(name: $userName){about}}`;
-    var variables = {
-      userName: username,
-    };
-    var url = 'https://graphql.anilist.co',
-      options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          query: query,
-          variables: variables,
-        }),
-      };
-    function handleResponse(e) {
-      return e.json().then(function (n) {
-        return e.ok ? n : Promise.reject(n);
-      });
-    }
-    fetch(url, options).then(handleResponse).then(handleData);
-    function handleData(data) {
-      auth = data.data.User.about;
-      let jsonMatch = (auth || '').match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/g);
-      let customcssmatch = (auth || '').match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
-      let customcssmatched;
-      if (customcssmatch) {
-        customcssmatched = customcssmatch[0];
-      } else {
-        customcssmatched = '';
-      }
-      let newDescription = '';
+    canRemoveActivity = false;
+    let userAboutData = '';
+    let activitiesIdArray = await mainDB.getItem('savedActivities');
+    const query = `query($userName: String) { User(name: $userName) { about } }`;
+    const variables = {userName: username,};
+    await alQuery(query, variables).then( await checkAbout);
+    async function checkAbout(data) {
+      userAboutData = data.data.User.about;
+      let jsonMatch = (userAboutData || '').match(/(\[\]\(actjson)([A-Za-z0-9+\/=]+)(\))/);
       if (jsonMatch) {
-        newDescription =
-          customcssmatched +
-          '[](actjson' +
-          LZString.compressToBase64(JSON.stringify(profileJson)) +
-          ')' +
-          (auth || '').replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, '').replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, '');
-      } else {
-        newDescription =
-          customcssmatched + '[](actjson' + LZString.compressToBase64(JSON.stringify(profileJson)) + ')' + (auth || '').replace(/\[\]\(json([A-Za-z0-9+\/=]+)\)/, '');
+        jsonMatch = jsonMatch[0].replace(/(\[\]\(actjson)([A-Za-z0-9+\/=]+)(\))/, '$2');
+        let decompressedData = JSON.parse(LZString.decompressFromBase64(jsonMatch));
+        let values = Object.values(decompressedData);
+        let apiArray = JSON.stringify(values).replace(/\\*"|\[|\]/g, '').split(/[.,!?]/);
+        if (!opt && apiArray.length > 0 && (!activitiesIdArray || activitiesIdArray.length < 1)) {
+          await mainDB.setItem('savedActivities', apiArray);
+        }
+        if(opt) {
+          await updateAbout();
+        }
       }
-      authAPIcall(
-        `mutation($about: String){UpdateUser(about: $about){about}}`,
-        {
-          about: newDescription,
-        },
-        function (data) {
-          if (!data) {
-            return;
+      if (activitiesIdArray && activitiesIdArray.length > 0) {
+        await updateAbout();
+        activitiesArray = JSON.stringify(activitiesIdArray).replace(/\\*"|\[|\]/g, '').split(/[.,!,?]/);
+      }
+      canRemoveActivity = true;
+    }
+
+    async function updateAbout(data) {
+      let jsonMatch = userAboutData.match(/(\[\]\(actjson)([A-Za-z0-9+\/=]+)(\))/);
+      let customcssmatch = userAboutData.match(/\[\]\(json([A-Za-z0-9+\/=]+)\)/);
+      let customcssmatched = customcssmatch ? customcssmatch[0] : '';
+      activitiesIdArray = JSON.stringify(activitiesIdArray);
+      let profileJson = { activitiesIdArray };
+      let base64Data = LZString.compressToBase64(JSON.stringify(profileJson));
+      let newDescription = '';
+
+      if (jsonMatch) {
+        userAboutData = userAboutData.replace(customcssmatched, '');
+        newDescription = customcssmatched + userAboutData.replace(/(\[\]\(actjson)([A-Za-z0-9+/=]+)(\))/,'$1' + base64Data + '$3');
+      } else {
+        if (customcssmatched) {
+          userAboutData = userAboutData.replace(customcssmatched, '');
+          newDescription = userAboutData.replace(customcssmatched, customcssmatched + '[](actjson' + base64Data + ')');
+        } else {
+          newDescription = '[](actjson' + base64Data + ')' + userAboutData;
+        }
+      }
+
+      await authAPIcall(`mutation($about: String) { UpdateUser(about: $about) { about } }`,{ about: newDescription },function (data) {
+        if (!data) {
+          console.error('Failed to update user data.');
+          return;
           }
-        },
+        }
       );
     }
   }
 }
 
+
+//Save Activity Button Function
+function addSavetoActivities(type) {
+  let ActivitySave = false;
+
+  if (!/^\/(home|user|activity)\/?([\w-]+)?\/?$/.test(location.pathname)) {
+    return;
+  }
+
+  setTimeout(addSavetoActivities, 500);
+  let activityCollection = document.querySelectorAll('.activity-extras-dropdown');
+  activityCollection.forEach(function (activity) {
+    if (!hasOwn(activity, 'ActivitySave')) {
+      activity.ActivitySave = true;
+      let activitySave = create(
+        'a',
+        {
+          dataIcon: 'link',
+          class: 'saveActivity el-dropdown-menu__item',
+          id: 'saveActivity',
+        },
+        '<b>Save Activity</b>',
+      );
+
+      activitySave.onclick = async function () {
+        let el = activitySave;
+        let id = el.parentElement.children[0].href.split('/')[4];
+
+        el.click();
+        el.click();
+        el.onclick = async () => {
+          el.lastElementChild.innerText = 'Saved!';
+          let activitiesIdArray = await mainDB.getItem('savedActivities');
+          let mainArray = activitiesIdArray ? activitiesIdArray : [];
+          if (mainArray.includes(id)) {
+            el.lastElementChild.innerText = 'Already Saved!';
+            return;
+          }
+          //mainArray.push(id);
+          await mainDB.setItem('savedActivities', mainArray);
+
+          let activityDataDiv = document.getElementById('activityDataDiv');
+            if (activityDataDiv) {
+              buildActivity();
+          }
+        };
+      };
+
+      if (activity.closest('.activity-text') || activity.closest('.activity-message')) {
+        activity.append(activitySave);
+        activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);
+      }
+    }
+  });
+
+  let likeButtonCollection = document.querySelectorAll('.activity-text .actions .button');
+  likeButtonCollection.forEach((button) => {
+    if (!hasOwn(button, 'ActivityHistory')) {
+      button.ActivityHistory = true;
+      button.addEventListener('click', async function () {
+        try {
+          const buttonId = button.getAttribute('id');
+          const id = buttonId ? buttonId : $(this).closest('.activity-text').find('.el-dropdown-menu__item:contains("Direct Link")')?.attr('href').split('/')[2];
+          let isLiked = $(this).hasClass('liked');
+          if (buttonId) {
+            isLiked = !isLiked;
+          }
+          if (!id) {
+            return;
+          } else {
+           button.setAttribute('id', id);
+          }
+          let mainArray = await mainDB.getItem('likeHistory') || [];
+          if (mainArray.includes(id)) {
+            if (isLiked) {
+              if (typeof mainArray === "string") {
+                mainArray = JSON.parse(mainArray);
+              }
+              mainArray = mainArray.map(item => String(item).trim());
+              // Find and remove the ID
+              const index = mainArray.indexOf(id);
+              if (index !== -1) {
+                mainArray.splice(index, 1);
+              }
+              // Update the mainArray and save back to the database
+              mainArray = mainArray;
+              await mainDB.setItem("likeHistory", mainArray);
+            }
+            return;
+          }
+          mainArray = [id, ...mainArray];
+          await mainDB.setItem('likeHistory', mainArray);
+        } catch (error) {
+          console.error('An error occurred while saving liked activity', error);
+        }
+      });
+    };
+  });
+}
+
 //Create Main Div
-function creatediv() {
-  button.setAttribute('class', 'el-dropdown-menu__item active');
+function creatediv(btn) {
+  btn.setAttribute('class', 'el-dropdown-menu__item active');
   var listDiv2 = create(
     'div',
     {
       class: 'maindiv',
       id: 'listDiv2',
     },
-    '<b>' + button.innerText + '</b>',
+    '<b>' + btn.innerText + '</b>',
   );
   let expandbtn = create('button', {
     class: 'mainbtns',
@@ -1344,11 +1888,11 @@ function creatediv() {
   var list = document.querySelector('.activity-feed-wrap + div');
   listDiv2.append(expandbtn, settingsbtn, closebtn);
   list.insertBefore(listDiv2, list.children[0]);
-  var activitydataDiv = create('div', {
-    class: 'activitydataDiv',
-    id: 'activitydataDiv',
+  var activityDataDiv = create('div', {
+    class: 'activityDataDiv',
+    id: 'activityDataDiv',
   });
-  listDiv2.appendChild(activitydataDiv);
+  listDiv2.appendChild(activityDataDiv);
   if (!accessToken) {
     let loginLink = create(
       'a',
@@ -1383,104 +1927,137 @@ function saveAs(data, fileName, pureText) {
 function settingsDiv() {
   settings = !settings;
   if (settings) {
-    let settingDiv = create(
-      'div',
-      {
-        class: 'maindiv',
-        id: 'settingDiv',
-      },
-      '<b>Settings</b>',
-    );
-    let importBtn = create('input', {
-      class: 'mainbtns',
-      id: 'importBtn',
-      type: 'button',
-      value: 'Import Saved Activites',
-    });
-    let exportBtn = create(
-      'a',
-      {
-        class: 'mainbtns',
-        id: 'exportBtn',
-      },
-      '<b>Export Saved Activites</b>',
-    );
-    exportBtn.onclick = function () {
-      let activitiesidarray = window.localStorage.getItem('savedactivites');
-      let export_activities = '[](actjson' + LZString.compressToBase64(JSON.stringify(activitiesidarray)) + ')';
-      if (username && activitiesidarray !== null && activitiesidarray !== '') {
-        saveAs(export_activities, 'ActivitySaver' + '_activities_' + username + '.json');
+    let settingDiv = create('div', {class: 'maindiv', id: 'settingDiv', }, '<b class="settingsText">Settings</b>');
+    let importBtn = create('input', {class: 'mainbtns', id: 'importBtn', type: 'button', value: 'Import Saved Activites'});
+    let exportBtn = create('a', {class: 'mainbtns', id: 'exportBtn',},'<b>Export Saved Activites</b>');
+    let exportHistoryBtn = create('a', {class: 'mainbtns', id: 'exportHistoryBtn',},'<b>Export Like History</b>');
+    let importHistoryBtn = create('input', {class: 'mainbtns', id: 'importHistoryBtn', type: 'button', value: 'Import Like History'});
+    exportBtn.onclick = async function () {
+    let savedArray = await mainDB.getItem('savedActivities');
+      let export_activities = '[](actjson' + LZString.compressToBase64(JSON.stringify(savedArray)) + ')';
+      if (username && savedArray !== null && savedArray.length > 0) {
+        saveAs(export_activities, 'ActivityBookmark' + '_SavedActivities_' + username + '.json');
       } else {
         exportBtn.innerText = 'Error: The list is empty.';
-        delay(3000).then(() => (exportBtn.innerText = 'Export Saved Activites'));
+        delay(3000).then(() => {
+          exportBtn.innerText = 'Export Saved Activities';
+        });
       }
     };
-    importBtn.onclick = function () {
+
+    importBtn.onclick = async function () {
       importBtn.setAttribute('type', 'file');
       importBtn.setAttribute('name', 'json');
       importBtn.setAttribute('accept', 'application/json');
-      importBtn.oninput = function () {
+
+      importBtn.oninput = async function () {
         let reader = new FileReader();
         reader.readAsText(importBtn.files[0], 'UTF-8');
-        reader.onload = function (evt) {
-          let data = '';
+
+        reader.onload = async function (evt) {
+          let fileContent = '';
           try {
-            data = JSON.parse(evt.target.result);
-            let datamatch = data.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
-            if (datamatch && data !== '[](actjsonETI=)') {
-              let data2 = data.replace(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/, '$1');
-              let data3 = JSON.parse(LZString.decompressFromBase64(data2));
-              let data4 = JSON.stringify(data3)
-                .replace(/\\*"|\[|\]/g, '')
-                .split(/[.,!,?]/);
-              window.localStorage.setItem('savedactivites', data4);
+            fileContent = JSON.parse(evt.target.result);
+            let compressedDataMatch = fileContent.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+
+            if (compressedDataMatch && fileContent !== '[](actjsonETI=)') {
+              let base64Data = compressedDataMatch[1];
+              let decompressedData = LZString.decompressFromBase64(base64Data);
+              let activitiesArray = JSON.parse(decompressedData);
+              let processedActivities = activitiesArray.map(activity => activity.trim()).filter(activity => activity.length > 0);
+              // Save the processed activities in localForage
+              await mainDB.setItem('savedActivities', processedActivities);
             } else {
-              importBtn.setAttribute('type', 'button');
-              importBtn.removeAttribute('accept');
-              importBtn.removeAttribute('name');
-              importBtn.value = 'Error: not valid backup file.';
-              delay(3000).then(() => (importBtn.value = 'Import Saved Activites'));
+              resetImportButton('Error: not valid backup file.');
               return;
             }
+
             if (autosave) {
-              autosaveact();
-              if (activitydataDiv) {
-                delay(1000).then(() => buildactivity());
+              if (activityDataDiv) {
+                await buildActivity();
               }
             }
-            importBtn.setAttribute('type', 'button');
-            importBtn.removeAttribute('accept');
-            importBtn.removeAttribute('name');
-            buildactivity();
-            importBtn.value = 'Activites Imported!';
-            delay(3000).then(() => (importBtn.value = 'Import Saved Activites'));
+            resetImportButton('Activities Imported!');
+            buildActivity();
           } catch (e) {
-            importBtn.setAttribute('type', 'button');
-            importBtn.removeAttribute('accept');
-            importBtn.removeAttribute('name');
-            importBtn.value = 'Error: not valid backup file.';
-            delay(3000).then(() => (importBtn.value = 'Import Saved Activites'));
-            return;
+            resetImportButton('Error: not valid backup file.');
           }
         };
       };
+
+      // Helper function to reset the import button to its default state
+      function resetImportButton(message) {
+        importBtn.setAttribute('type', 'button');
+        importBtn.removeAttribute('accept');
+        importBtn.removeAttribute('name');
+        importBtn.value = message;
+        delay(3000).then(() => (importBtn.value = 'Import Saved Activities'));
+      }
     };
-    let SavetoBtn = create(
-      'a',
-      {
-        class: 'mainbtns',
-        id: 'SavetoBtn',
-      },
-      '<b>Auto Backup Activities to Profile</b>',
-    );
+
+    exportHistoryBtn.onclick = async function () {
+    let savedArray = await mainDB.getItem('likeHistory');
+      let export_activities = '[](actjson' + LZString.compressToBase64(JSON.stringify(savedArray)) + ')';
+      if (username && savedArray !== null && savedArray.length > 0) {
+        saveAs(export_activities, 'ActivityBookmark' + '_LikeHistory_' + username + '.json');
+      } else {
+        exportHistoryBtn.innerText = 'Error: The list is empty.';
+        delay(3000).then(() => {
+          exportHistoryBtn.innerText = 'Export Like History';
+        });
+      }
+    };
+
+    importHistoryBtn.onclick = async function () {
+      importHistoryBtn.setAttribute('type', 'file');
+      importHistoryBtn.setAttribute('name', 'json');
+      importHistoryBtn.setAttribute('accept', 'application/json');
+      importHistoryBtn.oninput = async function () {
+        let reader = new FileReader();
+        reader.readAsText(importHistoryBtn.files[0], 'UTF-8');
+        reader.onload = async function (evt) {
+          let fileContent = '';
+          try {
+            fileContent = JSON.parse(evt.target.result);
+            let compressedDataMatch = fileContent.match(/\[\]\(actjson([A-Za-z0-9+\/=]+)\)/);
+            if (compressedDataMatch && fileContent !== '[](actjsonETI=)') {
+              let base64Data = compressedDataMatch[1];
+              let decompressedData = LZString.decompressFromBase64(base64Data);
+              let activitiesArray = JSON.parse(decompressedData);
+              let processedActivities = activitiesArray.map(activity => activity.trim()).filter(activity => activity.length > 0);
+              // Save the processed activities in localForage
+              await mainDB.setItem('likeHistory', processedActivities);
+            } else {
+              resetImportButton('Error: not valid backup file.');
+              return;
+            }
+            resetImportButton('Like History Imported!');
+            buildActivity();
+          } catch (e) {
+            resetImportButton('Error: not valid backup file.');
+          }
+        };
+      };
+
+      // Helper function to reset the import button to its default state
+      function resetImportButton(message) {
+        importHistoryBtn.setAttribute('type', 'button');
+        importHistoryBtn.removeAttribute('accept');
+        importHistoryBtn.removeAttribute('name');
+        importHistoryBtn.value = message;
+        delay(3000).then(() => (importHistoryBtn.value = 'Import Like History'));
+      }
+    };
+
+    let SavetoBtn = create('a', {class: 'mainbtns', id: 'SavetoBtn',},'<b>Auto Backup Activities to Profile</b>');
     SavetoBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
     if (accessToken.length < 5) {
       localStorage.setItem('actautosave', autosave);
       SavetoBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
     }
-    SavetoBtn.onclick = function () {
+    SavetoBtn.onclick = async function () {
       if (accessToken.length > 5) {
-        autosaveact();
+        await autoSaveActivity();
         autosave = !autosave;
         localStorage.setItem('actautosave', autosave);
         SavetoBtn.classList.toggle('btn-active', JSON.parse(localStorage.getItem('actautosave')));
@@ -1489,8 +2066,23 @@ function settingsDiv() {
         delay(3000).then(() => (SavetoBtn.innerText = 'Auto Backup Activities to Profile'));
       }
     };
+    let clearHistoryBtn = create('a', {class: 'mainbtns', id: 'clearHistoryBtn',},'<b>Clear Like History</b>');
+    let confirmation = 0;
+    clearHistoryBtn.onclick = async function () {
+      confirmation++;
+      if (confirmation == 1) {
+        clearHistoryBtn.innerHTML = '<b style="color: #e85d75;">Clear Like History (CONFIRM)</b>';
+      }
+      if (confirmation == 2) {
+        await mainDB.setItem('likeHistory', []);
+        clearHistoryBtn.innerHTML = '<b>Like History Deleted!</b>';
+        await delay(2000);
+        clearHistoryBtn.innerHTML = '<b>Clear Like History</b>';
+        confirmation = 0;
+      }
+    };
     listDiv2.insertBefore(settingDiv, listDiv2.children[1]);
-    settingDiv.append(importBtn, exportBtn, SavetoBtn);
+    settingDiv.append(importBtn, importHistoryBtn, exportBtn, exportHistoryBtn, SavetoBtn, clearHistoryBtn);
   } else {
     if (document.getElementById('settingDiv')) {
       document.getElementById('settingDiv').remove();
@@ -1507,27 +2099,27 @@ function expandDiv() {
     expandbtn.innerHTML = '';
     expandbtn.insertBefore(svg.compress.cloneNode(true), expandbtn.children[0]);
     listDiv2.setAttribute('class', 'maindiv expanded');
-    activitydataDiv.setAttribute('class', 'activitydataDiv expanded2');
+    activityDataDiv.setAttribute('class', 'activityDataDiv expanded2');
   } else {
     let x = document.querySelector('.activity-feed-wrap + div');
     x.insertBefore(listDiv2, x.children[0]);
     expandbtn.innerHTML = '';
     expandbtn.insertBefore(svg.expand.cloneNode(true), expandbtn.children[0]);
     listDiv2.className = listDiv2.className.replace(/(?:^|\s)expanded(?!\S)/g, '');
-    activitydataDiv.className = activitydataDiv.className.replace(/(?:^|\s)expanded2(?!\S)/g, '');
+    activityDataDiv.className = activityDataDiv.className.replace(/(?:^|\s)expanded2(?!\S)/g, '');
   }
 }
 
-//Get Saved Divs
-function getSavedDiv() {
+//Toggle Saved Divs
+function getSavedDiv(btn,type) {
   active = !active;
   let activefilter = document.querySelector('li.el-dropdown-menu__item.active');
   if (activefilter) {
     delay(1000).then(() => (activefilter.className = activefilter.className.replace(/(?:^|\s)active(?!\S)/g, '')));
   }
   if (active) {
-    creatediv();
-    buildactivity();
+    creatediv(btn);
+    buildActivity();
   }
   if (!active) {
     closeDiv();
@@ -1538,672 +2130,382 @@ function getSavedDiv() {
 function closeDiv() {
   var list = document.querySelectorAll('li:nth-child(1)');
   button.setAttribute('class', 'el-dropdown-menu__item');
+  button2.setAttribute('class', 'el-dropdown-menu__item');
   listDiv2.remove();
   active = false;
+  isLoading = false;
 }
 
-//Save Activity Button Function
-function addSavetoActivities() {
-  var ActivitySave = false;
-  if (!/^\/(home|user|activity)\/?([\w-]+)?\/?$/.test(location.pathname)) {
-    return;
-  }
-  setTimeout(addSavetoActivities, 500);
-  let activityCollection = document.querySelectorAll('.activity-extras-dropdown');
-  activityCollection.forEach(function (activity) {
-    if (!hasOwn(activity, 'ActivitySave')) {
-      activity.ActivitySave = true;
-      let activitySave = create(
-        'a',
-        {
-          dataIcon: 'link',
-          class: 'saveActivity el-dropdown-menu__item',
-          id: 'saveActivity',
-        },
-        '<b>Save Activity</b>',
-      );
-      activitySave.onclick = function () {
-        let el = activitySave;
-        let id = el.parentElement.children[0].href.split('/')[4];
-        el.click();
-        el.click();
-        el.onclick = () => {
-          el.lastElementChild.innerText = 'Saved!';
-          let activitiesidarray = window.localStorage.getItem('savedactivites');
-          if (activitiesidarray !== null) {
-            let x = activitiesidarray.split(/[.,!,?]/);
-            for (var i in x) {
-              if (x[i] == id) {
-                x.splice(i, 1);
-                break;
-              }
-            }
-            mainarray = x;
-          }
-          var id = el.parentElement.children[0].href.split('/')[4];
-          for (var i = 0; i <= mainarray.length; i++) {
-            if (id == mainarray[i]) {
-              el.lastElementChild.innerText = 'Already Saved!';
-              return;
-            }
-          }
-          mainarray.push(id);
-          localStorage.setItem('savedactivites', [mainarray]);
-          let activitydataDiv = document.getElementById('activitydataDiv');
-          if (autosave) {
-            autosaveact();
-            if (activitydataDiv) {
-              delay(1000).then(() => buildactivity());
-            }
-          } else {
-            if (activitydataDiv) {
-              buildactivity();
-            }
-          }
-        };
-      };
-      if (activity.closest('.activity-text') || activity.closest('.activity-message')) {
-        activity.append(activitySave);
-        activitySave.insertBefore(svg.pinned.cloneNode(true), activitySave.children[0]);
-      }
-    }
-  });
-}
-
-//MakeHTML saved Activity
-let actfixtext = '';
-function htmlfix(text) {
-  let acttextfix = text
-    .replace(/((?:(?:https?:)?(?:\/\/)?)(?:(?:www)?\.)?youtube\.(?:.+?)\/(?:(?:watch\?v=))[a-zA-Z0-9_-]{11}).*(&list.*(\n)|).*(\))/i, '$1$4')
-    .replace(/youtube\(+((?!https:).*).*\)/gim, ' youtube(https://www.youtube.com/watch?v=$1)')
-    .replace(/(~~~)/g, ' ' + '$1' + ' ')
-    .replace(/(__)([A-Za-z0-9\ ,.-<>\]*[A-Za-z0-9\ ,.-].*?(\s*))(__)/g, '<strong>' + '$2' + '</strong>')
-    .replace(/((?<!\[)\[)(.*?)(]).*?((?<!\()\()(.*?)(\))/gm, '<a href=' + '$5' + '>' + '$2' + '</a>')
-    .replace(/``([\s\S]*?)/g, '<code></code>')
-    .replace(/^ {0,3}((?:- *){3,}|(?:_ *){3,}|(?:\* *){3,})(?:\n+|$)/gm, '<hr>')
-    .replace(/(img.*)[\s\S]\/*?(.*())/g, (imgfix) => {
-      let imgfixed = imgfix.replace(/(\r\n|\n|\r)/g, '');
-      return imgfixed;
-    })
-    .replace(/youtube.(h).((.*?).*\))/gi, ' ![](ht$2')
-    .replace(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm, (embedlink) => {
-      let embedlinked = embedlink.match(/(?<!\(|"|=)\b(https:\/\/)(anilist\.co\/(anime|manga)\/)([0-9]+).([^\W]+.*?\/|[^\s]+)/gm);
-      return "<a class='embedLink' href=\"" + embedlinked + '">' + '</a>' + '</br>';
-    });
-  function spoiler() {
-    var actspoiled = false;
-    let actspoiler = document.querySelectorAll('.activitydata span.markdown_spoiler');
-    actspoiler.forEach(function (spoilers) {
-      if (!hasOwn(spoilers, 'actspoiled')) {
-        spoilers.actspoiled = true;
-        let contspoiler = create('span', {
-          class: 'markdown_spoiler_cont',
-        });
-        let showspoiler = create('span', {
-          class: 'markdown_spoiler_show',
-        });
-        showspoiler.innerHTML = 'Spoiler, click to view';
-        contspoiler.innerHTML = spoilers.innerHTML;
-        contspoiler.style.display = 'none';
-        spoilers.innerHTML = '';
-        spoilers.insertBefore(showspoiler, spoilers.children[0]);
-        spoilers.append(contspoiler);
-        showspoiler.onclick = function () {
-          if (contspoiler.style.display === 'none') {
-            showspoiler.innerHTML = 'Hide';
-            contspoiler.style.display = 'block';
-          } else {
-            showspoiler.innerHTML = 'Spoiler, click to view';
-            contspoiler.style.display = 'none';
-          }
-        };
-      }
-    });
-  }
-  function embed() {
-    var Activityembedded = false;
-    let embeds = document.querySelectorAll('.embedLink');
-    embeds.forEach(function (activity) {
-      if (!hasOwn(activity, 'Activityembedded')) {
-        activity.Activityembedded = true;
-        var id = activity.href.split('/')[4];
-        if (id !== undefined) {
-          getanime(id);
-          function getanime(embedid) {
-            var query = `query ($id: Int, $page: Int) {Page (page: $page) {media (id: $id) {type format status startDate {year} endDate {year}	season seasonYear averageScore id siteUrl title { romaji } coverImage { large  }}}}`;
-            var variables = {
-              id: embedid,
-              page: 1,
-            };
-            var url = 'https://graphql.anilist.co',
-              options = {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Accept: 'application/json',
-                },
-                body: JSON.stringify({
-                  query: query,
-                  variables: variables,
-                }),
-              };
-            function handleResponse(e) {
-              return e.json().then(function (n) {
-                return e.ok ? n : Promise.reject(n);
-              });
-            }
-            fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
-            function handleData(data) {
-              let activitySave = create(
-                'a',
-                {
-                  class: 'saveembed',
-                },
-                '<b>' + data.data.Page.media[0].title.romaji + '</b>',
-              );
-              let embedimg = create('a', {
-                class: 'cover',
-                style: {
-                  backgroundImage: 'url(' + data.data.Page.media[0].coverImage.large + ')',
-                },
-              });
-              activity.append(activitySave);
-              activity.href = data.data.Page.media[0].siteUrl;
-              activitySave.insertBefore(embedimg, activitySave.children[0]);
-              if (data.data.Page.media[0].averageScore !== null) {
-                var avg = ' · ' + data.data.Page.media[0].averageScore + '%';
-              } else {
-                avg = '';
-              }
-              if (data.data.Page.media[0].season !== null) {
-                var season = ' · ' + data.data.Page.media[0].season + ' ' + data.data.Page.media[0].seasonYear;
-              } else {
-                season = '';
-              }
-              let activitySaveDetails = create('a', {
-                class: 'saveembedDetails',
-              });
-              if (data.data.Page.media[0].type === 'MANGA') {
-                activitySaveDetails.innerHTML =
-                  '<b>' + data.data.Page.media[0].format + ' · ' + data.data.Page.media[0].status + ' · ' + data.data.Page.media[0].startDate.year + avg;
-              } else if (data.data.Page.media[0].format === 'MUSIC') {
-                activitySaveDetails.innerHTML = '<b>' + data.data.Page.media[0].format + ' · ' + data.data.Page.media[0].endDate.year + avg + '</b>';
-              } else {
-                activitySaveDetails.innerHTML = '<b>' + data.data.Page.media[0].format + season + ' · ' + data.data.Page.media[0].status + avg + '</b>';
-              }
-              embedimg.nextSibling.append(activitySaveDetails);
-              let fix = activitySaveDetails.text.replace(/(_)/g, ' ');
-              activitySaveDetails.text = fix;
-            }
-            function handleError(error) {
-              console.error(error);
-            }
-          }
-        }
-      }
-    });
-  }
-  DOMPurify.sanitize(acttextfix);
-  let fix = acttextfix
-    .replace(/(<strong>.*<\/strong>)((\n|)img\d.*\))/gm, '$1' + '<br>' + '$2' + '<br>')
-    .replace(/((img.*\d.*\)).*(img\d))/g, '$2' + '<br>' + '$3')
-    .replace(/(<br>*[\W]<br>){1,}/g, '')
-    .replace(/((https:.*)(<b>).*(<\/b>))/g, '$2')
-    .replace(/(<br>)/g, '$1 \n')
-    .replace(/((<\/a>)<br> \n (\W))/gm, '$2 $3')
-    .replace(/(?<!<\/br>)(\n).*(<a class='embedLink' href=".*">)/gm, '<br>' + '$2')
-    .replace(/<br>.*(\n).*(<a href=.*>)/gm, '$2');
-  actfixtext = makeHtml(fix)
-    .replace(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/gm, '<blockquote>' + '$2' + '</blockquote>')
-    .replace(/(?<![a-z&])#/g, '')
-    .replace(/(<img.*)(<a)/g, '$1<br>$2')
-    .replace(/\&lt;/g, '<')
-    .replace(/\&gt;/g, '>')
-    .replace(/(.*<img\b[^>]*>).*(\s*<a\b[^>]*>[^<]*<\/a>)/g, '$1' + '<br>' + '$2');
-  delay(10).then(() => spoiler());
-  delay(10).then(() => embed());
+async function updateEmbeds() {
+  await delay(50);
+  await getSpoilers();
+  await delay(50);
+  await getEmbedIds();
 }
 
 //Get Activity from API
-function getlist(id) {
+async function getActivity(id, source) {
+  source = likeHistory;
   if (id === '') {
     return;
   }
   var query = `query($id: Int){Activity(id: $id){
     ... on TextActivity{id type siteUrl createdAt text user{name avatar{medium}}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}
 		... on MessageActivity{id type siteUrl createdAt text: message user: messenger{name avatar{medium}}recipient{name}likes{name}replies{id createdAt text user{name avatar{medium}}likes{name}}}}}`;
-  var variables = {
-      id: id,
-    },
-    url = 'https://graphql.anilist.co',
-    options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        query: query,
-        variables: variables,
-      }),
-    };
-  fetch(url, options).then(handleResponse).then(handleData).catch(handleError);
-  let APIlimit = 90,
-    APIcallsUsed = 0,
-    APIcallsUsed_shortTerm = 0,
-    pending = {},
-    APIcounter = setInterval(function () {
-      APIcallsUsed = 0;
-    }, 6e4),
-    APIcounter2 = setInterval(function () {
-      APIcallsUsed_shortTerm = 0;
-    }, 1e4);
-  function handleResponse(e) {
-    (APIlimit = e.headers.get('x-ratelimit-limit')), (APIcallsUsed = APIlimit - e.headers.get('x-ratelimit-remaining'));
-    try {
-      return e.json().then(function (t) {
-        return e.ok ? t : Promise.reject(t);
-      });
-    } catch (t) {
-      throw (console.warn(t, e), t);
-    }
-  }
-  function handleData(data) {
-    let activity = data.data.Activity;
-    let id = activity.id;
-    let acttext = activity.text;
-    if (active) {
-      let activityinner = create('div', {
-        class: 'activityinner',
-      });
-      let aimg = create('a', {
-        class: 'activitydataimg',
-        id: 'activitydataimg',
-        href: 'https://anilist.co/user/' + activity.user.name,
-        style: {
-          backgroundImage: 'url(' + activity.user.avatar.medium + ')',
-        },
-      });
-      let actusername = create(
-        'a',
-        {
-          class: 'activitydatausername',
-          id: 'activitydatausername',
-          href: 'https://anilist.co/user/' + activity.user.name,
-        },
-        '' + activity.user.name,
-      );
-      let activitydiv = create('div', {
-        class: 'activitydata',
-        id: activity.id,
-      });
-      let actlinks = create('a', {
-        class: 'activitylinksdiv',
-      });
-      let actlink = create('a', {
-        class: 'activitylink',
-        id: activity.id,
-        href: activity.siteUrl,
-      });
-      let actremove = create('a', {
-        class: 'activitylink',
-        id: activity.id,
-      });
-      actremove.onclick = () => {
-        removeactivity(id);
-      };
-      let userdiv = create('div', {
-        class: 'activitydatauserdiv',
-        id: activity.id,
-      });
-      if (acttext === undefined) {
-        removeactivity(id);
-        return;
-      }
-      if (acttext !== undefined) {
-        htmlfix(acttext);
-        activityinner.innerHTML = actfixtext;
-      }
-      activitydataDiv.appendChild(activitydiv);
-      activitydiv.appendChild(activityinner);
-      activitydiv.appendChild(userdiv);
-      aimg.appendChild(actusername);
-      activitydiv.appendChild(actlinks);
-      actlinks.append(actlink, actremove);
-      actlink.insertBefore(svg.link.cloneNode(true), actlink.children[0]);
-      actremove.insertBefore(svg.cross.cloneNode(true), actremove.children[0]);
-      activitydiv.insertBefore(userdiv, activitydiv.children[0]);
-      userdiv.append(aimg, actlinks);
-      let timeWrapper = create2('div', 'acttime', false, actusername);
-      let time = nativeTimeElement(activity.createdAt);
-      timeWrapper.appendChild(time);
-      let actions = create2('div', 'actions', false, activitydiv);
-      let actionReplies = create2('a', ['action', 'replies'], false, actions);
-      let replyCount = create2('span', ['count'], activity.replies.length || '', actionReplies);
-      replyCount.appendChild(document.createTextNode(' '));
-      actionReplies.appendChild(svg.reply.cloneNode(true));
-      actions.appendChild(document.createTextNode(' '));
-      let actionLikes = create2('div', ['action', 'likes'], false, actions);
-      actionLikes.title = activity.likes.map((like) => like.name).join('\n');
-      let likeWrap = create2('div', ['like-wrap', 'activity'], false, actionLikes);
-      let likeButton = create2('div', 'button', false, likeWrap);
-      let likeCount = create2('span', 'count', activity.likes.length || '', likeButton);
-      likeButton.appendChild(document.createTextNode(' '));
-      likeButton.appendChild(svg.likeNative.cloneNode(true));
-      if (activity.likes.findIndex((thing) => thing.name === username) !== -1) {
-        likeButton.classList.add('liked');
-      }
-      if (accessToken) {
-        likeButton.onclick = function () {
-          let indexPlace = activity.likes.findIndex((thing) => thing.name === username);
-          if (indexPlace === -1) {
-            activity.likes.push({
-              name: username,
-            });
-            likeButton.classList.add('liked');
-          } else {
-            activity.likes.splice(indexPlace, 1);
-            likeButton.classList.remove('liked');
-          }
-          likeCount.innerText = activity.likes.length || '';
-          authAPIcall(
-            'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}',
-            {
-              id: activity.id,
-            },
-            function (data) {
-              if (!data) {
-                authAPIcall(
-                  'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}',
-                  {
-                    id: activity.id,
-                  },
-                  (data) => {},
-                );
-              }
-            },
-          );
+  var variables = { id: id, };
+  async function handleData(data) {
+    if (data) {
+      let activity = data.data.Activity;
+      let id = activity.id;
+      let acttext = activity.text;
+      if (active) {
+        let activityInner = create('div', { class: 'activityInner markdown', });
+        let aimg = create('a', { class: 'activityDataImage', id: 'activityDataImage', href: 'https://anilist.co/user/' + activity.user.name, style: { backgroundImage: 'url(' + activity.user.avatar.medium + ')', }, });
+        let actusername = create('a', { class: 'activityDataUsername', id: 'activityDataUsername', target:'_blank', href: 'https://anilist.co/user/' + activity.user.name, }, '' + activity.user.name,);
+        let activityDiv = create('div', { class: 'activity-text activityData wrap', id: activity.id, time: activity.createdAt, });
+        let actlinks = create('a', { class: 'activityLinksDiv', });
+        if(source) actlinks.style.left = 'calc(100% - 70px)';
+        let actlink = create('a', { class: 'activityLink', id: activity.id, target:'_blank', href: activity.siteUrl, });
+        let actremove = create('a', { class: 'activityLink', id: activity.id, });
+        actremove.onclick = async () => {
+          await removeActivity(id);
         };
-      }
-      let replyWrap = create2('div', 'reply-wrap', false, activitydiv, 'display:none;');
-      actionReplies.onclick = function () {
-        if (replyWrap.style.display === 'none') {
-          replyWrap.style.display = 'block';
-        } else {
-          replyWrap.style.display = 'none';
+        let userdiv = create('div', { class: 'activityDatauserdiv', id: activity.id, });
+        if (acttext === undefined) {
+          await removeActivity(id);
+          return;
         }
-      };
-      let activityReplies = create2('div', 'activity-replies', false, replyWrap);
-      activity.replies.forEach((rep) => {
-        let reply = create2('div', 'reply', false, activityReplies);
-        let header = create2('div', 'header', false, reply);
-        let replyAvatar = create2('a', 'activitydataimg', false, header);
-        replyAvatar.href = '/user/' + rep.user.name;
-        replyAvatar.style.backgroundImage = `url("${rep.user.avatar.medium}")`;
-        header.appendChild(document.createTextNode(' '));
-        let repName = create2('a', 'name', rep.user.name, header);
-        repName.href = '/user/' + rep.user.name;
-        let corner = create2('div', 'actions', false, header);
-        let replyActionLikes = create2('div', ['action', 'likes'], false, corner, 'display: inline-block');
-        const randomDataHate = 'data-v-977827fa';
-        let replyLikeWrap = create2('div', 'like-wrap', false, replyActionLikes);
-        let replyLikeButton = create2('div', 'button', false, replyLikeWrap);
-        let replyLikeCount = create2('span', 'count', rep.likes.length || '', replyLikeButton);
-        replyLikeButton.appendChild(document.createTextNode(' '));
-        replyLikeButton.appendChild(svg.likeNative.cloneNode(true));
-        replyLikeButton.title = rep.likes.map((a) => a.name).join('\n');
-        if (rep.likes.some((like) => like.name === username)) {
-          replyLikeButton.classList.add('liked');
+        if (acttext !== undefined) {
+          activityInner.innerHTML = await actHTMLFix(acttext);
+        }
+        activityDataDiv.appendChild(activityDiv);
+        activityDiv.appendChild(activityInner);
+        activityDiv.appendChild(userdiv);
+        aimg.appendChild(actusername);
+        activityDiv.appendChild(actlinks);
+        source ? actlinks.append(actlink) : actlinks.append(actlink, actremove);
+        actlink.insertBefore(svg.link.cloneNode(true), actlink.children[0]);
+        actremove.insertBefore(svg.cross.cloneNode(true), actremove.children[0]);
+        activityDiv.insertBefore(userdiv, activityDiv.children[0]);
+        userdiv.append(aimg, actlinks);
+        let timeWrapper = create2('div', 'acttime', false, actusername);
+        let time = nativeTimeElement(activity.createdAt);
+        timeWrapper.appendChild(time);
+        let actions = create2('div', 'actions', false, activityDiv);
+        let actionReplies = create2('a', ['action', 'replies'], false, actions);
+        let replyCount = create2('span', ['count'], activity.replies.length || '', actionReplies);
+        replyCount.appendChild(document.createTextNode(' '));
+        actionReplies.appendChild(svg.reply.cloneNode(true));
+        actions.appendChild(document.createTextNode(' '));
+        let actionLikes = create2('div', ['action', 'likes'], false, actions);
+        actionLikes.title = activity.likes.map((like) => like.name).join('\n');
+        let likeWrap = create2('div', ['like-wrap', 'activity'], false, actionLikes);
+        let likeButton = create2('div', 'button', false, likeWrap);
+        let likeCount = create2('span', 'count', activity.likes.length || '', likeButton);
+        likeButton.appendChild(document.createTextNode(' '));
+        likeButton.appendChild(svg.likeNative.cloneNode(true));
+        likeButton.setAttribute('id',activity.id);
+        if (activity.likes.findIndex((thing) => thing.name === username) !== -1) {
+          likeButton.classList.add('liked');
         }
         if (accessToken) {
-          replyLikeButton.onclick = function () {
+          likeButton.onclick = function () {
+            let indexPlace = activity.likes.findIndex((thing) => thing.name === username);
+            if (indexPlace === -1) {
+              activity.likes.push({
+                name: username,
+              });
+              likeButton.classList.add('liked');
+            } else {
+              activity.likes.splice(indexPlace, 1);
+              likeButton.classList.remove('liked');
+            }
+            likeCount.innerText = activity.likes.length || '';
             authAPIcall(
-              'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}',
+              'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}',
               {
-                id: rep.id,
+                id: activity.id,
               },
-              function (data2) {
-                if (!data2) {
+              function (data) {
+                if (!data) {
                   authAPIcall(
-                    'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}',
+                    'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY){id}}',
                     {
-                      id: rep.id,
+                      id: activity.id,
                     },
-                    function (data3) {},
+                    (data) => { },
                   );
                 }
               },
             );
-            if (rep.likes.some((like) => like.name === username)) {
-              rep.likes.splice(
-                rep.likes.findIndex((user) => user.name === username),
-                1,
-              );
-              replyLikeButton.classList.remove('liked');
-              if (rep.likes.length > 0) {
-                replyLikeButton.querySelector('.count').innerText = rep.likes.length;
-              } else {
-                replyLikeButton.querySelector('.count').innerText = '';
-              }
-            } else {
-              rep.likes.push({
-                name: username,
-              });
-              replyLikeButton.classList.add('liked');
-              replyLikeButton.querySelector('.count').innerText = rep.likes.length;
-            }
           };
-          if (rep.user.name === username) {
-            corner.style.cssText = 'width: 165px;left: calc(100% - 175px);top: 6px';
-            let replyEdit = create('div', {
-              class: 'mainbtns',
-              id: 'editreply',
-              style: {
-                background: 'transparent',
-                color: 'rgb(var(--color-blue-dim))',
-              },
-            });
-            replyEdit.insertBefore(svg.edit.cloneNode(true), replyEdit.children[0]);
-            corner.insertBefore(replyEdit, corner.children[0]);
-            let active = true;
-            replyEdit.onclick = function () {
-              if (active) {
-                let statusInput = create2('div', 'inputbox', false, 'text-align: -webkit-center;');
-                let inputArea = create2('textarea', 'el-textarea__inner', false, statusInput);
-                let inputButtons = create2('div', 'inputButtons', false, statusInput, 'margin-bottom:10px;float: right;padding: 20px 2% 15px 15px;');
-                let cancelButton = create2(
-                  'div',
-                  ['replybutton', 'cancel'],
-                  'Cancel',
-                  inputButtons,
-                  'background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);',
-                );
-                let publishButton = create2('div', 'replybutton', 'Publish', inputButtons, 'display:none;');
-                inputArea.value = rep.text;
-                reply.parentNode.insertBefore(statusInput, reply.nextSibling);
-                inputArea.style.cssText = 'height:0px';
-                statusInput.style.cssText = 'display: flow-root';
-                inputArea.onfocus = function () {
-                  cancelButton.style.display = 'inline';
-                  publishButton.style.display = 'inline';
-                };
-                inputArea.addEventListener('keydown', autosize);
-                function autosize() {
-                  var el = this;
-                  setTimeout(function () {
-                    el.style.cssText = 'height:auto';
-                    el.style.cssText = 'height:' + el.scrollHeight + 'px';
-                  }, 0);
-                }
-                cancelButton.onclick = function () {
-                  inputArea.value = '';
-                  inputArea.style.cssText = 'height:0px';
-                  cancelButton.style.display = 'none';
-                  publishButton.style.display = 'none';
-                  active = true;
-                  statusInput.remove();
-                };
-                publishButton.onclick = function () {
-                  authAPIcall(
-                    `mutation($text: String,$Id: Int){id text(asHtml: true)}}`,
-                    {
-                      text: inputArea.value,
-                      Id: rep.id,
-                    },
-                    (data) => {
-                      if (data) {
-                        delay(1000).then(() => buildactivity());
-                      }
-                    },
-                  );
-                };
-                cancelButton.style.display = 'none';
-                publishButton.style.display = 'none';
-              }
-              active = false;
-            };
-            let replyRemove = create('div', {
-              class: 'mainbtns',
-              id: 'removereply',
-              style: {
-                background: 'transparent',
-                transform: 'translateX(2px)',
-                color: 'rgb(var(--color-blue-dim))',
-              },
-            });
-            replyRemove.insertBefore(svg.xmark.cloneNode(true), replyRemove.children[0]);
-            corner.insertBefore(replyRemove, corner.children[0]);
-            replyRemove.onclick = function () {
+        }
+        let replyWrap = create2('div', 'reply-wrap', false, activityDiv, 'display:none;');
+        actionReplies.onclick = function () {
+          if (replyWrap.style.display === 'none') {
+            replyWrap.style.display = 'block';
+          } else {
+            replyWrap.style.display = 'none';
+          }
+        };
+        let activityReplies = create2('div', 'activity-replies', false, replyWrap);
+        activity.replies.forEach(async (rep) => {
+          let reply = create2('div', 'reply', false, activityReplies);
+          let header = create2('div', 'header', false, reply);
+          let replyAvatar = create2('a', 'activityDataImage', false, header);
+          replyAvatar.href = '/user/' + rep.user.name;
+          replyAvatar.style.backgroundImage = `url("${rep.user.avatar.medium}")`;
+          header.appendChild(document.createTextNode(' '));
+          let repName = create2('a', 'name', rep.user.name, header);
+          repName.href = '/user/' + rep.user.name;
+          let corner = create2('div', 'actions', false, header);
+          let replyActionLikes = create2('div', ['action', 'likes'], false, corner, 'display: inline-block');
+          let replyLikeWrap = create2('div', 'like-wrap', false, replyActionLikes);
+          let replyLikeButton = create2('div', 'button', false, replyLikeWrap);
+          let replyLikeCount = create2('span', 'count', rep.likes.length || '', replyLikeButton);
+          replyLikeButton.appendChild(document.createTextNode(' '));
+          replyLikeButton.appendChild(svg.likeNative.cloneNode(true));
+          replyLikeButton.title = rep.likes.map((a) => a.name).join('\n');
+          if (rep.likes.some((like) => like.name === username)) {
+            replyLikeButton.classList.add('liked');
+          }
+          if (accessToken) {
+            replyLikeButton.onclick = function () {
               authAPIcall(
-                `mutation($Id: Int){DeleteActivityReply(id: $Id) {deleted}}`,
+                'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}',
                 {
-                  Id: rep.id,
+                  id: rep.id,
                 },
-                (data) => {
-                  if (data) {
-                    delay(1000).then(() => buildactivity());
+                function (data2) {
+                  if (!data2) {
+                    authAPIcall(
+                      'mutation($id:Int){ToggleLike(id:$id,type:ACTIVITY_REPLY){id}}',
+                      {
+                        id: rep.id,
+                      },
+                      function (data3) { },
+                    );
                   }
                 },
               );
+              if (rep.likes.some((like) => like.name === username)) {
+                rep.likes.splice(
+                  rep.likes.findIndex((user) => user.name === username),
+                  1,
+                );
+                replyLikeButton.classList.remove('liked');
+                if (rep.likes.length > 0) {
+                  replyLikeButton.querySelector('.count').innerText = rep.likes.length;
+                } else {
+                  replyLikeButton.querySelector('.count').innerText = '';
+                }
+              } else {
+                rep.likes.push({
+                  name: username,
+                });
+                replyLikeButton.classList.add('liked');
+                replyLikeButton.querySelector('.count').innerText = rep.likes.length;
+              }
             };
+            if (rep.user.name === username) {
+              corner.style.cssText = 'width: 165px;left: calc(100% - 175px);top: 6px';
+              let replyEdit = create('div', {
+                class: 'mainbtns',
+                id: 'editreply',
+                style: {
+                  background: 'transparent',
+                  color: 'rgb(var(--color-blue-dim))',
+                },
+              });
+              replyEdit.insertBefore(svg.edit.cloneNode(true), replyEdit.children[0]);
+              corner.insertBefore(replyEdit, corner.children[0]);
+              let active = true;
+              replyEdit.onclick = function () {
+                if (active) {
+                  let statusInput = create2('div', 'inputbox', false, 'text-align: -webkit-center;');
+                  let inputArea = create2('textarea', 'el-textarea__inner', false, statusInput);
+                  let inputButtons = create2('div', 'inputButtons', false, statusInput, 'margin-bottom:10px;float: right;padding: 20px 2% 15px 15px;');
+                  let cancelButton = create2(
+                    'div',
+                    ['replybutton', 'cancel'],
+                    'Cancel',
+                    inputButtons,
+                    'background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);',
+                  );
+                  let publishButton = create2('div', 'replybutton', 'Publish', inputButtons, 'display:none;');
+                  inputArea.value = rep.text;
+                  reply.parentNode.insertBefore(statusInput, reply.nextSibling);
+                  inputArea.style.cssText = 'height:0px';
+                  statusInput.style.cssText = 'display: flow-root';
+                  inputArea.onfocus = function () {
+                    cancelButton.style.display = 'inline';
+                    publishButton.style.display = 'inline';
+                  };
+                  inputArea.addEventListener('keydown', autosize);
+                  function autosize() {
+                    var el = this;
+                    setTimeout(function () {
+                      el.style.cssText = 'height:auto';
+                      el.style.cssText = 'height:' + el.scrollHeight + 'px';
+                    }, 0);
+                  }
+                  cancelButton.onclick = function () {
+                    inputArea.value = '';
+                    inputArea.style.cssText = 'height:0px';
+                    cancelButton.style.display = 'none';
+                    publishButton.style.display = 'none';
+                    active = true;
+                    statusInput.remove();
+                  };
+                  publishButton.onclick = function () {
+                    authAPIcall(`mutation($text: String,$Id: Int){id text(asHtml: true)}}`, { text: inputArea.value, Id: rep.id, }, (data) => {
+                      if (data) {
+                        delay(1000).then(() => buildActivity());
+                      }
+                    },
+                    );
+                  };
+                  cancelButton.style.display = 'none';
+                  publishButton.style.display = 'none';
+                }
+                active = false;
+              };
+              let replyRemove = create('div', { class: 'mainbtns', id: 'removereply', style: { background: 'transparent', transform: 'translateX(2px)', color: 'rgb(var(--color-blue-dim))', }, });
+              replyRemove.insertBefore(svg.xmark.cloneNode(true), replyRemove.children[0]);
+              corner.insertBefore(replyRemove, corner.children[0]);
+              replyRemove.onclick = function () {
+                authAPIcall(`mutation($Id: Int){DeleteActivityReply(id: $Id) {deleted}}`, { Id: rep.id, }, (data) => {
+                  if (data) {
+                    delay(1000).then(() => buildActivity());
+                  }
+                },);
+              };
+            }
           }
-        }
-        let replyActionTime = create2('div', ['action', 'time'], false, corner, 'display: inline-block');
-        let replyTime = nativeTimeElement(rep.createdAt);
-        replyActionTime.appendChild(replyTime);
-        let replyMarkdown = create2('div', 'reply-markdown', false, reply);
-        let markdown = create2('div', 'markdown', false, replyMarkdown);
-        let repText = rep.text;
-        if (repText !== undefined) {
-          htmlfix(repText);
-          markdown.innerHTML = actfixtext;
-        }
-      });
-      if (accessToken) {
-        let statusInput = create2('div', false, false, replyWrap, 'padding-top:10px; text-align: -webkit-center;');
-        let inputArea = create2('textarea', 'el-textarea__inner', false, statusInput);
-        let inputButtons = create2('div', 'inputButtons', false, statusInput, 'float: right;padding: 20px 2% 15px 15px;');
-        let cancelButton = create2('div', ['replybutton', 'cancel'], 'Cancel', inputButtons, 'background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);');
-        let publishButton = create2('div', 'replybutton', 'Publish', inputButtons, 'display:none;');
-        inputArea.placeholder = 'Write a reply..';
-        inputArea.style.cssText = 'height:0px';
-        inputArea.onfocus = function () {
-          cancelButton.style.display = 'inline';
-          publishButton.style.display = 'inline';
-        };
-        inputArea.addEventListener('keydown', autosize);
-        function autosize() {
-          var el = this;
-          setTimeout(function () {
-            if (inputArea.scrollHeight > 54) {
-              el.style.cssText = 'height:auto';
-              el.style.cssText = 'height:' + el.scrollHeight + 'px';
-            }
-            if (inputArea.value.length < 20) {
-              el.style.cssText = 'height:0';
-            }
-          }, 0);
-        }
-        cancelButton.onclick = function () {
-          inputArea.value = '';
+          let replyActionTime = create2('div', ['action', 'time'], false, corner, 'display: inline-block');
+          let replyTime = nativeTimeElement(rep.createdAt);
+          replyActionTime.appendChild(replyTime);
+          let replyMarkdown = create2('div', 'reply-markdown', false, reply);
+          let markdown = create2('div', 'markdown', false, replyMarkdown);
+          let repText = rep.text;
+          if (repText !== undefined) {
+            markdown.innerHTML = await actHTMLFix(repText);
+          }
+        });
+        if (accessToken) {
+          let statusInput = create2('div', false, false, replyWrap, 'padding-top:10px; text-align: -webkit-center;');
+          let inputArea = create2('textarea', 'el-textarea__inner', false, statusInput);
+          let inputButtons = create2('div', 'inputButtons', false, statusInput, 'float: right;padding: 20px 2% 15px 15px;');
+          let cancelButton = create2('div', ['replybutton', 'cancel'], 'Cancel', inputButtons, 'background: rgb(var(--color-foreground));display:none;color: rgb(159, 173, 189);');
+          let publishButton = create2('div', 'replybutton', 'Publish', inputButtons, 'display:none;');
+          inputArea.placeholder = 'Write a reply..';
           inputArea.style.cssText = 'height:0px';
+          inputArea.onfocus = function () {
+            cancelButton.style.display = 'inline';
+            publishButton.style.display = 'inline';
+          };
+          inputArea.addEventListener('keydown', autosize);
+          function autosize() {
+            var el = this;
+            setTimeout(function () {
+              if (inputArea.scrollHeight > 54) {
+                el.style.cssText = 'height:auto';
+                el.style.cssText = 'height:' + el.scrollHeight + 'px';
+              }
+              if (inputArea.value.length < 20) {
+                el.style.cssText = 'height:0';
+              }
+            }, 0);
+          }
+          cancelButton.onclick = function () {
+            inputArea.value = '';
+            inputArea.style.cssText = 'height:0px';
+            cancelButton.style.display = 'none';
+            publishButton.style.display = 'none';
+          };
+          publishButton.onclick = function () {
+            authAPIcall(`mutation($text: String,$activityId: Int){SaveActivityReply(text: $text,activityId: $activityId){id user{name} likes{name} text(asHtml: true) createdAt}}`,
+              {
+                text: inputArea.value,
+                activityId: activity.id,
+              },
+              (data) => {
+                if (data) {
+                  delay(1000).then(() => buildActivity());
+                }
+              },
+            );
+          };
+          inputArea.value = '';
           cancelButton.style.display = 'none';
           publishButton.style.display = 'none';
-        };
-        publishButton.onclick = function () {
-          authAPIcall(
-            `mutation($text: String,$activityId: Int){
-									SaveActivityReply(text: $text,activityId: $activityId){
-										id
-										user{name}
-										likes{name}
-										text(asHtml: true)
-										createdAt
-									}
-								}`,
-            {
-              text: inputArea.value,
-              activityId: activity.id,
-            },
-            (data) => {
-              if (data) {
-                delay(1000).then(() => buildactivity());
-              }
-            },
-          );
-        };
-        inputArea.value = '';
-        cancelButton.style.display = 'none';
-        publishButton.style.display = 'none';
+        }
       }
     }
   }
   function handleError(e) {
     console.log(e);
-    if (e.errors) {
-      if (e.errors.some((thing) => thing.message === 'Not Found.')) {
-        removeactivity(id);
-      }
-    }
   }
+  await alQuery(query, variables).then(handleData).then().catch(handleError);
+  await updateEmbeds();
 }
 
-//Check Token
-function check() {
-  let current = '';
-  let mainLoop = setInterval(() => {
-    if (document.URL !== current) {
-      let oldURL = current + '';
-      current = document.URL;
-      if (/^https:\/\/anilist\.co\/home#access_token/.test(current)) {
-        let tokenList = location.hash.split('&').map((a) => a.split('='));
-        accessToken = tokenList[0][1];
-        localStorage.setItem('savetkn', LZString.compressToBase64(JSON.stringify(accessToken)));
-        location.replace(location.protocol + '//' + location.hostname + location.pathname);
-      }
+// Remove Activity Function
+async function removeActivity(id,db) {
+  let idDB = db ? db : "savedActivities";
+  if (canRemoveActivity) {
+    document.getElementById(id)?.remove();
+    let activitiesIdArray = await mainDB.getItem(idDB);
+    if (typeof activitiesIdArray === "string") {
+      activitiesIdArray = JSON.parse(activitiesIdArray);
     }
-  }, 200);
+    id = String(id).trim();
+    activitiesIdArray = activitiesIdArray.map(item => String(item).trim());
+
+    // Find and remove the ID
+    const index = activitiesIdArray.indexOf(id);
+    if (index !== -1) {
+      activitiesIdArray.splice(index, 1);
+    }
+    // Update the mainArray and save back to the database
+    mainArray = activitiesIdArray;
+    await mainDB.setItem(idDB, activitiesIdArray);
+    if (autosave) {
+      await autoSaveActivity(1);
+    }
+  }
 }
 
 //Add Save Button to Activities
 var target = document.querySelector('body');
+var oldHref = document.location.href;
+
 var observer = new MutationObserver(function (mutationsList, observer) {
   for (var mutation of mutationsList) {
-    if (/^\/(home)\/?([\w-]+)?\/?$/.test(location.pathname) && mutation.addedNodes[0] !== undefined && mutation.addedNodes[0].className === 'activity-entry activity-text') {
-      addSavetoActivities();
-    }
     if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-      if (oldHref != document.location.href) {
+      mutation.addedNodes.forEach(async (node) => {
+        if (
+          node.nodeType === Node.ELEMENT_NODE &&
+          (
+            node.classList.contains('activity-entry') ||
+            node.classList.contains('activity-text') ||
+            node.querySelector('.activity-entry, .activity-text')
+          )
+        ) {
+          await delay(2000);
+          addSavetoActivities();
+        }
+      });
+
+      if (oldHref !== document.location.href) {
         oldHref = document.location.href;
         active = false;
-        start();
-        set(button, {
-          class: 'el-dropdown-menu__item',
-        });
+        addToFilters();
       }
     }
   }
 });
+
 observer.observe(target, {
   childList: true,
   subtree: true,
